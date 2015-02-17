@@ -5,9 +5,8 @@ terminal styling cuz yeah thats always better
 * bytes/kb/mb of code per language breakdown + %
 * combined commit graphs? (plus addition/deletion?)
 * top repo starred/top repos recently worked on
-* recent new repos
 * latest commits
-* map punchard/time of day commit thing as sin/cos function?
+* map punchard/time of day commit thing as sin/cos function? (i forget how you do this...)
 
 most stard / most forkd
 
@@ -15,9 +14,6 @@ num open issues by repo
 
 owned vs forked num
 
-average repo age? (top 5 oldest repos vs last commit or something idk?)
-
-active vs inactive repos?
 
 Repos idk about formating...?
 -----

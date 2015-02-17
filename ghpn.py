@@ -28,6 +28,10 @@ def print_logo():
 	print("#")
 	print("# github parents night v%s" % (VERSION))
 
+def print_section_header(header):
+	h_len = "#"*(len(header)+4)
+	print("%s\n# %s #\n%s\n" % (h_len, header, h_len))
+
 class GHRepo(object):
 	def __init__(
 		self,
@@ -293,13 +297,14 @@ class GHProfileStats(object):
 
 	def print_header(self):
 		print("REPORT FOR: %s\n" % (self.name))
-		print("    Github footprint: %s [%s minus forks]" % (humanize.naturalsize(self.footprint), humanize.naturalsize(self.footprint_minus_forks)))
-		print("\n# User Info #")
+		print_section_header("User info")
 		print("    Github username: %s" % (self.username))
 		print("    User since: %s [%s]" % (self.user_since.strftime("%d-%m-%Y"), humanize.naturaltime(datetime.datetime.now()-self.user_since)))
 		print("    Last active: %s" % (humanize.naturaltime(self.last_active)))
 		print("    Followers: %d [following %d]" % (self.followers, self.following))
-		print("\n# Repositories #")
+		print("    Github footprint: %s [%s minus forks]" % (humanize.naturalsize(self.footprint), humanize.naturalsize(self.footprint_minus_forks)))
+		print()
+		print_section_header("Repositories")
 		print("    Repos: %s [%d forks, %d inactive for >6 months] " % (self.repo_num, self.forked_repo_num, self.num_inactive_repos))
 		print("    Stars: %d [over %d repos]" % (self.stars[0], self.stars[1]))
 		print("    Forkers: %d [over %d repos]" % (self.forkers[0], self.forkers[1]))
@@ -309,23 +314,23 @@ class GHProfileStats(object):
 		print("    Languages used: %s" % (len(self.langs)))
 
 	def print_lang_breakdown(self):
-		print("# Language breakdown #")
+		print_section_header("Language breakdown")
 		table = [(l[0], l[1], humanize.naturalsize(l[2], gnu=True), int(l[3]/4)*"|", "{:3.2f}%".format(l[3])) for l in self.langs]
-		for t in tabulate(table, tablefmt="simple", headers=["", "times used", "footprint", " "*25, ""]).split("\n"):
+		for t in tabulate(table, tablefmt="simple", headers=["", "times used", "footprint", " "*25, ""], stralign="right").split("\n"):
 			print("    %s" % (t))
 
 	def print_active_repos(self):
-		print("# Recently active repos #")
+		print_section_header("Recently active repos")
 		for t in tabulate(self.active_repos, tablefmt="simple", headers=["", "language", "last commit", "total commits", "last updated", "created"]).split("\n"):
 			print("    %s" % (t))
 
 	def print_inactive_repos(self):
-		print("# Inactive repos #")
+		print_section_header("Inactive repos")
 		for t in tabulate(self.inactive_repos, tablefmt="simple", headers=["", "language", "last commit", "total commits", "last updated", "created"]).split("\n"):
 			print("    %s" % (t))
 
 	def print_popular_repos(self):
-		print("# Popular repos #")
+		print_section_header("Popular repos")
 		for t in tabulate(self.popular_repos, tablefmt="simple", headers=["", "stars", "forkers", "total commits", "last updated"]).split("\n"):
 			print("    %s" % (t))
 
