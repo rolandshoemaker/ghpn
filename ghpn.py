@@ -7,7 +7,7 @@ import dateutil.parser
 from tabulate import tabulate
 import humanize
 
-# gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
+gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
 VERSION = "0.0.5"
 
 def date_handler(obj):
@@ -38,6 +38,57 @@ def logo_block(name=None):
 def section_header_block(header):
 	h_len = "#"*(len(header)+4)
 	return "%s\n# %s #\n%s\n" % (h_len, header, h_len)
+
+def flatten_event_list(events):
+	flat = {}
+	for e in events:
+		d_key = e.created_at.strftime("%d-%m-%Y")
+		if flat.get(d_key, None):
+			flat[d_key].append(e)
+		else:
+			flat[d_key] = []
+			flat[d_key].append(e)
+	flatr = [[k, len(v)] for k, v in flat.items()]
+	flatr.sort(key=lambda x: x[0])
+	return flatr
+
+def reduce_events(events, cutoff=25):
+	pushes = []
+	creates = []
+	forks = []
+	issues = []
+
+	for e in events:
+		if e.type == "PushEvent":
+			pushes.append(e)
+		elif e.type == "CreateEvent":
+			creates.append(e)
+		elif e.type == "ForkEvent":
+			forks.append(e)
+		elif e.type == "IssueCommentEvent" or e.type == "IssuesEvent":
+			issues.append(e)
+
+	if len(pushes) < cutoff:
+		pushes = None
+	else:
+		pushes = flatten_event_list(pushes)
+
+	if len(creates) < cutoff:
+		creates = None
+	else:
+		creates = flatten_event_list(creates)
+
+	if len(forks):
+		forks = None
+	else:
+		forks = flatten_event_list(forks)
+
+	if len(issues):
+		issues = None
+	else:
+		issues = flatten_event_list(issues)
+
+	return pushes, creates, forks, issues
 
 class GHRepo(object):
 	def __init__(
@@ -73,7 +124,21 @@ class GHRepo(object):
 		self.last_commit = last_commit
 
 class GHProfile(object):
-	def __init__(self, username=None, name=None, user_since=None, last_active=None, followers=None, following=None, repos=None, location=None):
+	def __init__(
+		self,
+		username=None,
+		name=None,
+		user_since=None,
+		last_active=None,
+		followers=None,
+		following=None,
+		repos=None,
+		location=None,
+		push_activity=None,
+		fork_activity=None,
+		create_activity=None,
+		issue_activity=None
+	):
 		self.username = username
 		self.name = name
 		self.user_since = user_since
@@ -82,6 +147,10 @@ class GHProfile(object):
 		self.following = following
 		self.repos = repos
 		self.location = location
+		self.push_activity = push_activity
+		self.fork_activity = fork_activity
+		self.create_activity = create_activity
+		self.issue_activity = issue_activity
 
 	@staticmethod
 	def from_github(username):
@@ -126,6 +195,8 @@ class GHProfile(object):
 
 			ro_repos.append(repo)
 
+		pushes, creates, forks, issues = reduce_events(ro.get_events())
+
 		return GHProfile(
 			username=username,
 			name=ro.name,
@@ -134,7 +205,11 @@ class GHProfile(object):
 			followers=ro.followers,
 			following=ro.following,
 			repos=ro_repos,
-			location=ro.location
+			location=ro.location,
+			push_activity=pushes,
+			fork_activity=forks,
+			create_activity=creates,
+			issue_activity=issues
 		)
 
 	@staticmethod
@@ -167,7 +242,11 @@ class GHProfile(object):
 				following=profile["following"],
 				name=profile["name"],
 				repos=repos,
-				location=profile["location"]
+				location=profile["location"],
+				push_activity=profile["push_activity"],
+				fork_activity=profile["fork_activity"],
+				create_activity=profile["create_activity"],
+				issue_activity=profile["issue_activity"]
 			)
 
 	def to_file(self, filename):
@@ -180,6 +259,10 @@ class GHProfile(object):
 				"followers": self.followers,
 				"following": self.following,
 				"location": self.location,
+				"push_activity": self.push_activity,
+				"fork_activity": self.fork_activity,
+				"create_activity": self.create_activity,
+				"issue_activity": self.issue_activity,
 				"repos": [r.__dict__ for r in self.repos]
 			}
 			json.dump(profile, f, default=date_handler)
@@ -250,44 +333,6 @@ class GHProfile(object):
 	def get_total_commits(self):
 		return sum(r.total_commits for r in self.repos if not r.is_forkd)
 
-def flatten_event_list(events):
-	flat = {}
-	for e in events:
-		d_key = e.created_at.strftime("%d-%m-%Y")
-		if flat.get(d_key, None):
-			flat[d_key].append(e)
-		else:
-			flat[d_key] = []
-			flat[d_key].append(e)
-	return [[k, len(v)] for k, v in flat.items()]
-
-def construct_event_graph(header, event_tuples):
-	line_length = len(event_tuples)
-	graph_height = 15
-
-	e_max = max(event_tuples, key=lambda x: x[1])[1]
-
-	def trans(value, event_max=e_max, graph_max=graph_height):
-		return ((graph_max)*(value)/(event_max))
-
-	print(section_header_block(header))
-
-	for row in range(graph_height, 0, -1):
-		print("        ", end="")
-		for col in range(line_length):
-			if trans(event_tuples[col][1]) > row:
-				print("##", end="")
-			else:
-				print("  ", end="")
-		print("| ", end="")
-		if row == graph_height or row == 1:
-			print("%d" % (row))
-		else:
-			print()
-	print("        "+"-"*(2*line_length))
-	#print(str("        {: <%d}{: >%d}    " % (line_length, line_length)).format("|", "|"))
-	print(str("    {: <%d} {: >%d}" % (line_length+4, line_length+4)).format(event_tuples[0][0], event_tuples[1][0]))
-
 class GHProfileStats(object):
 	def __init__(
 		self,
@@ -312,7 +357,11 @@ class GHProfileStats(object):
 		active_repos=None,
 		inactive_repos=None,
 		num_inactive_repos=None,
-		total_commits=None
+		total_commits=None,
+		push_activity=None,
+		fork_activity=None,
+		create_activity=None,
+		issue_activity=None
 	):
 		self.username = username
 		self.name = name
@@ -336,6 +385,10 @@ class GHProfileStats(object):
 		self.inactive_repos = inactive_repos
 		self.num_inactive_repos = num_inactive_repos
 		self.total_commits = total_commits
+		self.push_activity = push_activity
+		self.fork_activity = fork_activity
+		self.create_activity = create_activity
+		self.issue_activity = issue_activity
 
 	@staticmethod
 	def get(username):
@@ -367,7 +420,11 @@ class GHProfileStats(object):
 			active_repos=profile.get_active_repos()[:repo_limit],
 			inactive_repos=profile.get_inactive_repos()[:repo_limit],
 			num_inactive_repos=len(profile.get_inactive_repos()),
-			total_commits=profile.get_total_commits()
+			total_commits=profile.get_total_commits(),
+			push_activity=profile.push_activity,
+			fork_activity=profile.fork_activity,
+			create_activity=profile.create_activity,
+			issue_activity=profile.issue_activity
 		)
 
 	@staticmethod
@@ -400,7 +457,11 @@ class GHProfileStats(object):
 			active_repos=stats_json["active_repos"],
 			inactive_repos=stats_json["inactive_repos"],
 			num_inactive_repos=stats_json["num_inactive_repos"],
-			total_commits=stats_json["total_commits"]
+			total_commits=stats_json["total_commits"],
+			push_activity=stats_json["push_activity"],
+			fork_activity=stats_json["fork_activity"],
+			create_activity=stats_json["create_activity"],
+			issue_activity=stats_json["issue_activity"]
 		)
 
 	def to_json(self):
@@ -479,6 +540,41 @@ class GHProfileStats(object):
 				output.append("    %s" % (t))
 			return "\n".join(output)
 
+	@staticmethod
+	def construct_event_graph_block(header, event_tuples, height=15):
+		if event_tuples:
+			output = []
+			line_length = len(event_tuples)
+			if line_length < 10:
+				modi = 15
+			elif line_length > 75:
+				modi = 1
+			else:
+				modi = 2
+			e_max = max(event_tuples, key=lambda x: x[1])[1]
+			def trans(value, event_max=e_max, graph_max=height):
+				return ((graph_max)*(value)/(event_max))
+
+			output.append(section_header_block(header))
+			table = ""
+			for row in range(height, 0, -1):
+				table += "        "
+				for col in range(line_length):
+					if trans(event_tuples[col][1]) > row:
+						table += "#"*modi
+					else:
+						table += " "*modi
+				table += "| "
+				if row == height:
+					table += "%d\n" % (e_max)
+				elif row == 1:
+					table += "%d\n" % (row)
+				else:
+					table += "\n"
+			output.append(table+"        "+"-"*(modi*line_length)+"/")
+			output.append(str("    {: <%d} {: >%d}" % ((modi*line_length/2)+4, (modi*line_length/2)+4)).format(event_tuples[0][0], event_tuples[-1][0]))
+			return "\n".join(output)
+
 	def get_all_blocks(self):
 		name = self.name or self.username
 		blocks = [
@@ -487,11 +583,14 @@ class GHProfileStats(object):
 			self.repo_block(),
 			self.lang_breakdown_block(),
 			self.popular_repos_block(),
+			self.construct_event_graph_block("Push chart", self.push_activity),
+			self.construct_event_graph_block("New repository chart", self.create_activity),
+			self.construct_event_graph_block("Issue comments chart", self.issue_activity),
+			self.construct_event_graph_block("Fork chart", self.fork_activity),
 			self.active_repos_block(),
 			self.inactive_repos_block()
 		]
 		return [b for b in blocks if b]
-
 
 def testing():
 	# debug, debug, debug, benching?
@@ -548,7 +647,8 @@ def testing():
 	print("  Average size (zlib'd):       %s" % (humanize.naturalsize(avg([d["profile_stats_gz_size"] for d in debugs]))))
 
 def run():
-	roland = GHProfile.from_github("dannyhunter2")
+	import sys
+	roland = GHProfile.from_github(sys.argv[1])
 	stats = GHProfileStats.from_ghprofile(roland)
 
 	print("\n\n".join(stats.get_all_blocks()))

@@ -1,36 +1,15 @@
 build a report for a user
 
-terminal styling cuz yeah thats always better
+add debug mode to GHProfile and GHProfileStats and web app
 
-* bytes/kb/mb of code per language breakdown + %
-* combined commit graphs? (plus addition/deletion?)
-* top repo starred/top repos recently worked on
-* latest commits
-* map punchard/time of day commit thing as sin/cos function? (i forget how you do this...)
+	GHProfile
+		- requests took
+		- requests made
 
-most stard / most forkd
+	GHProfileStats
+		- generating stats took
 
-num open issues by repo
-
-owned vs forked num
-
-
-Repos idk about formating...?
------
-
-like this, same thing for repo | star | forks | watcher? (like top 5/10 or smthing)
-
-	rust	 2  (100kb) ||
-	python	10   (15mb) ||||||||||
-	sh	 5  (150kb) |||||
-	ruby	 1   (10kb) |
-	css	 2    (1kb) ||
-	js	 4   (23kb) ||||
-	-----------------------------------
-	total   24   (20mb)
-
-for d in dicty:
-	print("%s %s %s) % (d, dicty[d], "|"*dicty[d]))
-
-name	lang	c hash 		total commits	last updated		created
-theca	Rust	3e23fdaa	268				2014-15-03 15:33	2014-10-03 00:10
+	Web app
+		- from cache / from github
+		- avg. request time? (or something)
+		- avg. key size in cache?
