@@ -39,7 +39,7 @@ def get_user(username):
 		return Response(status=200)
 	stats, status_code = get_stats(username)
 	blocks = stats.get_all_blocks()
-	return render_template("user.html", blocks=blocks)
+	return render_template("user.html", blocks=blocks, username=stats.username)
 
 if __name__ == "__main__":
-	app.run(debug=True)
+	app.run(debug=True, host="10.0.0.31")

@@ -7,6 +7,7 @@ import dateutil.parser
 from tabulate import tabulate
 import humanize
 
+# gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
 VERSION = "0.0.5"
 
 def date_handler(obj):
@@ -249,6 +250,44 @@ class GHProfile(object):
 	def get_total_commits(self):
 		return sum(r.total_commits for r in self.repos if not r.is_forkd)
 
+def flatten_event_list(events):
+	flat = {}
+	for e in events:
+		d_key = e.created_at.strftime("%d-%m-%Y")
+		if flat.get(d_key, None):
+			flat[d_key].append(e)
+		else:
+			flat[d_key] = []
+			flat[d_key].append(e)
+	return [[k, len(v)] for k, v in flat.items()]
+
+def construct_event_graph(header, event_tuples):
+	line_length = len(event_tuples)
+	graph_height = 15
+
+	e_max = max(event_tuples, key=lambda x: x[1])[1]
+
+	def trans(value, event_max=e_max, graph_max=graph_height):
+		return ((graph_max)*(value)/(event_max))
+
+	print(section_header_block(header))
+
+	for row in range(graph_height, 0, -1):
+		print("        ", end="")
+		for col in range(line_length):
+			if trans(event_tuples[col][1]) > row:
+				print("##", end="")
+			else:
+				print("  ", end="")
+		print("| ", end="")
+		if row == graph_height or row == 1:
+			print("%d" % (row))
+		else:
+			print()
+	print("        "+"-"*(2*line_length))
+	#print(str("        {: <%d}{: >%d}    " % (line_length, line_length)).format("|", "|"))
+	print(str("    {: <%d} {: >%d}" % (line_length+4, line_length+4)).format(event_tuples[0][0], event_tuples[1][0]))
+
 class GHProfileStats(object):
 	def __init__(
 		self,
@@ -371,6 +410,8 @@ class GHProfileStats(object):
 		output = []
 		output.append(section_header_block("User info"))
 		output.append("    Github username: %s" % (self.username))
+		if self.name:
+			output.append("    Name: %s" % (self.name))
 		if self.location:
 			output.append("    Location: %s" % (self.location))
 		output.append("    User since: %s [%s]" % (self.user_since.strftime("%d-%m-%Y"), humanize.naturaltime(datetime.datetime.now()-self.user_since)))
@@ -451,7 +492,6 @@ class GHProfileStats(object):
 		]
 		return [b for b in blocks if b]
 
-gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
 
 def testing():
 	# debug, debug, debug, benching?
