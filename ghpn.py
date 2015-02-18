@@ -7,7 +7,7 @@ import dateutil.parser
 from tabulate import tabulate
 import humanize
 
-VERSION = "0.0.1"
+VERSION = "0.0.5"
 
 def date_handler(obj):
     if isinstance(obj, datetime.datetime):
@@ -17,22 +17,26 @@ def date_handler(obj):
     else:
         raise TypeError("Unserializable object {} of type {}".format(obj, type(obj)))
 
-def print_logo():
-	print("#       __                         ")
-	print("#      /\ \                        ")
-	print("#    __\ \ \___   _____     ___    ")
-	print("#  /'_ `\ \  _ `\/\ '__`\ /' _ `\  ")
-	print("# /\ \_\ \ \ \ \ \ \ \/\ \/\ \/\ \ ")
-	print("# \ \____ \ \_\ \_\ \ ,__/\ \_\ \_\\")
-	print("#  \/____\ \/_/\/_/\ \ \/  \/_/\/_/")
-	print("#    /\____/        \ \_\          ")
-	print("#    \_/__/          \/_/          ")
-	print("#")
-	print("# github parents night v%s" % (VERSION))
+def logo_block(name=None):
+	output = []
+	output.append("#       __                         ")
+	output.append("#      /\ \                        ")
+	output.append("#    __\ \ \___   _____     ___    ")
+	output.append("#  /'_ `\ \  _ `\/\ '__`\ /' _ `\  ")
+	output.append("# /\ \_\ \ \ \ \ \ \ \/\ \/\ \/\ \ ")
+	output.append("# \ \____ \ \_\ \_\ \ ,__/\ \_\ \_\\")
+	output.append("#  \/____\ \/_/\/_/\ \ \/  \/_/\/_/")
+	output.append("#    /\____/        \ \_\          ")
+	output.append("#    \_/__/          \/_/          ")
+	output.append("#")
+	output.append("# github parents night v%s" % (VERSION))
+	if name:
+		output += ["#", "# REPORT FOR: %s" % (name)]
+	return "\n".join(output)
 
-def print_section_header(header):
+def section_header_block(header):
 	h_len = "#"*(len(header)+4)
-	print("%s\n# %s #\n%s\n" % (h_len, header, h_len))
+	return "%s\n# %s #\n%s\n" % (h_len, header, h_len)
 
 class GHRepo(object):
 	def __init__(
@@ -296,14 +300,7 @@ class GHProfileStats(object):
 
 	@staticmethod
 	def get(username):
-		if username in chache:
-			return GHProfileStats.from_cache(username)
-		else:
-			return GHProfileStats.from_profile(GHProfile.from_github(username))
-
-	@staticmethod
-	def from_cache(username):
-		pass
+		return GHProfileStats.from_ghprofile(GHProfile.from_github(username))
 
 	@staticmethod
 	def from_ghprofile(profile, repo_limit=10):
@@ -316,7 +313,7 @@ class GHProfileStats(object):
 			user_since=profile.user_since,
 			last_active=profile.last_active,
 			repo_num=len(profile.repos),
-			forked_repo_num=len([r for r in roland.repos if r.is_forkd]),
+			forked_repo_num=len([r for r in profile.repos if r.is_forkd]),
 			langs=profile.get_lang_stats(),
 			footprint=footprint,
 			footprint_minus_forks=footprint_minus_forks,
@@ -334,19 +331,58 @@ class GHProfileStats(object):
 			total_commits=profile.get_total_commits()
 		)
 
-	def print_header(self):
-		print("REPORT FOR: %s\n" % (self.name or self.username))
-		print_section_header("User info")
-		print("    Github username: %s" % (self.username))
+	@staticmethod
+	def from_json(stats_json):
+		stats_json = json.loads(stats_json)
+
+		oldest, newest = stats_json["oldest_repo"], stats_json["newest_repo"]
+		oldest[1] = datetime.timedelta(seconds=oldest[1])
+		newest[1] = datetime.timedelta(seconds=newest[1])
+
+		return GHProfileStats(
+			username=stats_json["username"],
+			name=stats_json["name"],
+			location=stats_json["location"],
+			user_since=dateutil.parser.parse(stats_json["user_since"]),
+			last_active=dateutil.parser.parse(stats_json["last_active"]),
+			repo_num=stats_json["repo_num"],
+			forked_repo_num=stats_json["forked_repo_num"],
+			langs=stats_json["langs"],
+			footprint=stats_json["footprint"],
+			footprint_minus_forks=stats_json["footprint_minus_forks"],
+			stars=stats_json["stars"],
+			forkers=stats_json["forkers"],
+			followers=stats_json["followers"],
+			following=stats_json["following"],
+			oldest_repo=oldest,
+			newest_repo=newest, 
+			avg_repo_age=datetime.timedelta(seconds=stats_json["avg_repo_age"]),
+			popular_repos=stats_json["popular_repos"],
+			active_repos=stats_json["active_repos"],
+			inactive_repos=stats_json["inactive_repos"],
+			num_inactive_repos=stats_json["num_inactive_repos"],
+			total_commits=stats_json["total_commits"]
+		)
+
+	def to_json(self):
+		return json.dumps(self.__dict__, default=date_handler)
+
+	def user_block(self):
+		output = []
+		output.append(section_header_block("User info"))
+		output.append("    Github username: %s" % (self.username))
 		if self.location:
-			print ("    Location: %s" % (self.location))
-		print("    User since: %s [%s]" % (self.user_since.strftime("%d-%m-%Y"), humanize.naturaltime(datetime.datetime.now()-self.user_since)))
-		print("    Last active: %s" % (humanize.naturaltime(self.last_active)))
-		print("    Followers: %d [following %d]" % (self.followers, self.following))
+			output.append("    Location: %s" % (self.location))
+		output.append("    User since: %s [%s]" % (self.user_since.strftime("%d-%m-%Y"), humanize.naturaltime(datetime.datetime.now()-self.user_since)))
+		output.append("    Last active: %s" % (humanize.naturaltime(self.last_active)))
+		output.append("    Followers: %d [following %d]" % (self.followers, self.following))
 		if self.footprint > 0:
-			print("    Github footprint: %s [%s minus forks]" % (humanize.naturalsize(self.footprint, gnu=True), humanize.naturalsize(self.footprint_minus_forks, gnu=True)))
-		print()
-		print_section_header("Repositories")
+			output.append("    Github footprint: %s [%s minus forks]" % (humanize.naturalsize(self.footprint, gnu=True), humanize.naturalsize(self.footprint_minus_forks, gnu=True)))
+		return "\n".join(output)
+
+	def repo_block(self):
+		output = []
+		output.append(section_header_block("Repositories"))
 		if self.forked_repo_num > 0 or self.num_inactive_repos > 0:
 			extra = []
 			if self.forked_repo_num > 0:
@@ -356,129 +392,126 @@ class GHProfileStats(object):
 			extra_repo = " [%s]" % (", ".join(extra))
 		else:
 			extra_repo = ""
-		print("    Repos: %s%s" % (self.repo_num, extra_repo))
-		print("    Total commits: %d" % (self.total_commits))
-		print("    Stars: %d [over %d repos]" % (self.stars[0], self.stars[1]))
-		print("    Forkers: %d [over %d repos]" % (self.forkers[0], self.forkers[1]))
+		output.append("    Repos: %s%s" % (self.repo_num, extra_repo))
+		output.append("    Total commits: %d" % (self.total_commits))
+		output.append("    Stars: %d [over %d repos]" % (self.stars[0], self.stars[1]))
+		output.append("    Forkers: %d [over %d repos]" % (self.forkers[0], self.forkers[1]))
 		if self.repo_num > 0:
-			print("    Oldest repo: %s [%s]" % (self.oldest_repo[0], humanize.naturaltime(self.oldest_repo[1]).replace("ago", "old")))
-			print("    Newest repo: %s [%s]" % (self.newest_repo[0], humanize.naturaltime(self.newest_repo[1]).replace("ago", "old")))
+			output.append("    Oldest repo: %s [%s]" % (self.oldest_repo[0], humanize.naturaltime(self.oldest_repo[1]).replace("ago", "old")))
+			output.append("    Newest repo: %s [%s]" % (self.newest_repo[0], humanize.naturaltime(self.newest_repo[1]).replace("ago", "old")))
 		if self.avg_repo_age:
-			print("    Average repo age: %s" % (humanize.naturaltime(self.avg_repo_age).replace("ago", "old")))
+			output.append("    Average repo age: %s" % (humanize.naturaltime(self.avg_repo_age).replace("ago", "old")))
 		if len(self.langs) > 0:
-			print("    Languages used: %s" % (len(self.langs)))
+			output.append("    Languages used: %s" % (len(self.langs)))
+		return "\n".join(output)
 
-	def print_lang_breakdown(self):
+	def lang_breakdown_block(self):
+		output = []
 		if len(self.langs) > 0:
-			print_section_header("Language breakdown")
+			output.append(section_header_block("Language breakdown"))
 			table = [(l[0], humanize.naturalsize(l[2], gnu=True), l[1], int(l[3]/4)*"|", "{:3.2f}%".format(l[3])) for l in self.langs]
 			for t in tabulate(table, tablefmt="simple", headers=["", "footprint", "times used", " "*25, ""], stralign="right").split("\n"):
-				print("    %s" % (t))
+				output.append("    %s" % (t))
+			return "\n".join(output)
 
-	def print_active_repos(self):
+	def active_repos_block(self):
+		output = []
 		if len(self.active_repos) > 0:
-			print_section_header("Recently active repositories")
+			output.append(section_header_block("Recently active repositories"))
 			for t in tabulate(self.active_repos, tablefmt="simple", headers=["", "language", "last commit", "total commits", "last updated", "created"]).split("\n"):
-				print("    %s" % (t))
+				output.append("    %s" % (t))
+			return "\n".join(output)
 
-	def print_inactive_repos(self):
+	def inactive_repos_block(self):
+		output = []
 		if len(self.inactive_repos) > 0:
-			print_section_header("Inactive repositories")
+			output.append(section_header_block("Inactive repositories"))
 			for t in tabulate(self.inactive_repos, tablefmt="simple", headers=["", "language", "last commit", "total commits", "last updated", "created"]).split("\n"):
-				print("    %s" % (t))
+				output.append("    %s" % (t))
+			return "\n".join(output)
 
-	def print_popular_repos(self):
+	def popular_repos_block(self):
+		output = []
 		if len(self.popular_repos) > 0:
-			print_section_header("Popular repositories")
+			output.append(section_header_block("Popular repositories"))
 			for t in tabulate(self.popular_repos, tablefmt="simple", headers=["", "stars", "forkers", "total commits", "last updated"]).split("\n"):
-				print("    %s" % (t))
+				output.append("    %s" % (t))
+			return "\n".join(output)
+
+	def get_all_blocks(self):
+		name = self.name or self.username
+		blocks = [
+			logo_block(name=name),
+			self.user_block(),
+			self.repo_block(),
+			self.lang_breakdown_block(),
+			self.popular_repos_block(),
+			self.active_repos_block(),
+			self.inactive_repos_block()
+		]
+		return [b for b in blocks if b]
 
 gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
 
-# debug, debug, debug, benching?
-# debug imports
-import requests
-from random import randrange
-import sys
-import zlib
-ts = "https://api.github.com/user/"
-test_users = ['skilygui', 'pajikos', 'maddychennupati', 'Priceless1024', 'TesterTestowy', 'polo04rail', 'ebujan', 'alzhao', 'danacn', 'hsiw9uvh5p8', 'b23a2d7e7a', 'kongko', 'jiangxinghe', 'ksvbka', 'irispanda50', 'zerjioang', 'umas63', 'lynnwalker1129', 'hargrel', 'vtsuei2', 'dannyhunter2', 'MonicaPH', 'kevindennill', 'lmm523', 'hmartens']
-# while len(test_users) <=25:
-# 	r = requests.get(ts+str(randrange(0, 10000901)))
-# 	if r:
-# 		print(r.json()["login"])
-# 		test_users.append(r.json()["login"])
+def testing():
+	# debug, debug, debug, benching?
+	# debug imports
+	import requests
+	from random import randrange
+	import sys
+	import zlib
+	ts = "https://api.github.com/user/"
+	test_users = [] # ['skilygui', 'pajikos', 'maddychennupati', 'Priceless1024', 'TesterTestowy', 'polo04rail', 'ebujan', 'alzhao', 'danacn', 'hsiw9uvh5p8', 'b23a2d7e7a', 'kongko', 'jiangxinghe', 'ksvbka', 'irispanda50', 'zerjioang', 'umas63', 'lynnwalker1129', 'hargrel', 'vtsuei2', 'dannyhunter2', 'MonicaPH', 'kevindennill', 'lmm523', 'hmartens']
+	while len(test_users) <=25:
+		r = requests.get(ts+str(randrange(200000, 10000901)))
+		if r:
+			print(r.json()["login"])
+			test_users.append(r.json()["login"])
+	print(test_users)
 
-debugs = []
-for tu in test_users:
-	print(tu+"\n")
-	start_t = time.time()
-	start_l = gh.rate_limiting[0]
+	debugs = []
+	for tu in test_users:
+		print(tu+"\n")
+		start_t = time.time()
+		start_l = gh.rate_limiting[0]
 
-	roland = GHProfile.from_github(tu)
-	# roland = GHProfile.from_github("rolandshoemaker")
-	# GHProfile.from_github("rolandshoemaker").to_file("rolandshoemaker.json")
-	# roland = GHProfile.from_file("rolandshoemaker.json")
+		roland = GHProfile.from_github(tu)
+		# roland = GHProfile.from_github("rolandshoemaker")
+		# GHProfile.from_github("rolandshoemaker").to_file("rolandshoemaker.json")
+		# roland = GHProfile.from_file("rolandshoemaker.json")
+		stats = GHProfileStats.from_ghprofile(roland)
+
+		c_s = time.time()
+		zlibd = sys.getsizeof(zlib.compress(bytes(json.dumps(stats.__dict__, default=date_handler).encode("utf-8"))))
+		c_t = time.time()-c_s
+		DEBUG_INFO = {
+			"requests_took": time.time()-start_t,
+			"num_requests_made": start_l-gh.rate_limiting[0],
+			"profile_stats_size": sys.getsizeof(json.dumps(stats.__dict__, default=date_handler)),
+			"profile_stats_gz_size": zlibd
+		}
+		debugs.append(DEBUG_INFO)
+
+		section_header_block("DEBUG")
+		print("    requests took:        %.2fs" % (DEBUG_INFO["requests_took"]))
+		print("    num requests made:    %d" % (DEBUG_INFO["num_requests_made"]))
+		print("    stats size:           %s" % (humanize.naturalsize(DEBUG_INFO["profile_stats_size"])))
+		print("    stats size (zlib'd):  %s [took %.4fs-ish]\n" % (humanize.naturalsize(DEBUG_INFO["profile_stats_gz_size"]), c_t))
+
+	def avg(l):
+		return sum(l) / len(l)
+
+	section_header_block("RUN STATS")
+	print("  Average collection period:   %.2fs" % (avg([d["requests_took"] for d in debugs])))
+	print("  Average requests:            %.2d" % (avg([d["num_requests_made"] for d in debugs])))
+	print("  Average size:                %s" % (humanize.naturalsize(avg([d["profile_stats_size"] for d in debugs]))))
+	print("  Average size (zlib'd):       %s" % (humanize.naturalsize(avg([d["profile_stats_gz_size"] for d in debugs]))))
+
+def run():
+	roland = GHProfile.from_github("dannyhunter2")
 	stats = GHProfileStats.from_ghprofile(roland)
 
-	c_s = time.time()
-	zlibd = sys.getsizeof(zlib.compress(bytes(json.dumps(stats.__dict__, default=date_handler).encode("utf-8"))))
-	c_t = time.time()-c_s
-	DEBUG_INFO = {
-		"requests_took": time.time()-start_t,
-		"num_requests_made": start_l-gh.rate_limiting[0],
-		"profile_stats_size": sys.getsizeof(json.dumps(stats.__dict__, default=date_handler)),
-		"profile_stats_gz_size": zlibd
-	}
-	debugs.append(DEBUG_INFO)
+	print("\n\n".join(stats.get_all_blocks()))
 
-	print_logo()
-	print()
-	stats.print_header()
-	print()
-	if len(stats.langs) > 0:
-		stats.print_lang_breakdown()
-		print()
-	if len(stats.popular_repos) > 0:
-		stats.print_popular_repos()
-		print()
-	if len(stats.active_repos) > 0:
-		stats.print_active_repos()
-		print()
-	if len(stats.inactive_repos) > 0:
-		stats.print_inactive_repos()
-		print()
-
-	print_section_header("DEBUG")
-	print("    requests took:        %.2fs" % (DEBUG_INFO["requests_took"]))
-	print("    num requests made:    %d" % (DEBUG_INFO["num_requests_made"]))
-	print("    stats size:           %s" % (humanize.naturalsize(DEBUG_INFO["profile_stats_size"])))
-	print("    stats size (zlib'd):  %s [took %.4fs-ish]\n" % (humanize.naturalsize(DEBUG_INFO["profile_stats_gz_size"]), c_t))
-def avg(l):
-	return sum(l) / len(l)
-
-print_section_header("RUN STATS")
-print("  Average collection period:   %.2fs" % (avg([d["requests_took"] for d in debugs])))
-print("  Average requests:            %.2d" % (avg([d["num_requests_made"] for d in debugs])))
-print("  Average size:                %s" % (humanize.naturalsize(avg([d["profile_stats_size"] for d in debugs]))))
-print("  Average size (zlib'd):       %s" % (humanize.naturalsize(avg([d["profile_stats_gz_size"] for d in debugs]))))
-
-# roland = GHProfile.from_github("dannyhunter2")
-# stats = GHProfileStats.from_ghprofile(roland)
-
-# print_logo()
-# print()
-# stats.print_header()
-# print()
-# if len(stats.langs) > 0:
-# 	stats.print_lang_breakdown()
-# 	print()
-# if len(stats.popular_repos) > 0:
-# 	stats.print_popular_repos()
-# 	print()
-# if len(stats.active_repos) > 0:
-# 	stats.print_active_repos()
-# 	print()
-# if len(stats.inactive_repos) > 0:
-# 	stats.print_inactive_repos()
-# 	print()
+if __name__ == "__main__":
+	run()
