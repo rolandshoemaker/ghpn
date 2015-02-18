@@ -68,7 +68,7 @@ class GHRepo(object):
 		self.last_commit = last_commit
 
 class GHProfile(object):
-	def __init__(self, username=None, name=None, user_since=None, last_active=None, followers=None, following=None, repos=None):
+	def __init__(self, username=None, name=None, user_since=None, last_active=None, followers=None, following=None, repos=None, location=None):
 		self.username = username
 		self.name = name
 		self.user_since = user_since
@@ -76,6 +76,7 @@ class GHProfile(object):
 		self.followers = followers
 		self.following = following
 		self.repos = repos
+		self.location = location
 
 	@staticmethod
 	def from_github(username):
@@ -120,7 +121,16 @@ class GHProfile(object):
 
 			ro_repos.append(repo)
 
-		return GHProfile(username=username, name=ro.name, user_since=ro.created_at, last_active=ro.updated_at, followers=ro.followers, following=ro.following, repos=ro_repos)
+		return GHProfile(
+			username=username,
+			name=ro.name,
+			user_since=ro.created_at,
+			last_active=ro.updated_at,
+			followers=ro.followers,
+			following=ro.following,
+			repos=ro_repos,
+			location=ro.location
+		)
 
 	@staticmethod
 	def from_file(filename):
@@ -143,7 +153,17 @@ class GHProfile(object):
 				created_at=dateutil.parser.parse(r["created_at"]),
 				last_commit=r["last_commit"]
 			) for r in profile["repos"]]
-			return GHProfile(username=profile["username"], user_since=dateutil.parser.parse(profile["user_since"]), last_active=dateutil.parser.parse(profile["last_active"]), followers=profile["followers"], following=profile["following"], name=profile["name"], repos=repos)
+
+			return GHProfile(
+				username=profile["username"],
+				user_since=dateutil.parser.parse(profile["user_since"]),
+				last_active=dateutil.parser.parse(profile["last_active"]),
+				followers=profile["followers"],
+				following=profile["following"],
+				name=profile["name"],
+				repos=repos,
+				location=profile["location"]
+			)
 
 	def to_file(self, filename):
 		with open(filename, "w") as f:
@@ -154,6 +174,7 @@ class GHProfile(object):
 				"last_active": self.last_active,
 				"followers": self.followers,
 				"following": self.following,
+				"location": self.location,
 				"repos": [r.__dict__ for r in self.repos]
 			}
 			json.dump(profile, f, default=date_handler)
@@ -174,13 +195,17 @@ class GHProfile(object):
 		return sum(r.size for r in self.repos), sum(r.size for r in self.repos if not r.is_forkd)
 
 	def get_avg_repo_age(self):
-		ages = [datetime.datetime.now()-r.created_at for r in self.repos]
-		return sum(ages, datetime.timedelta(0))/len(ages)
+		if len(self.repos) > 0:
+			ages = [datetime.datetime.now()-r.created_at for r in self.repos]
+			return sum(ages, datetime.timedelta(0))/len(ages)
 
 	def get_repo_age_range(self):
-		oldest = max([(r.name,  datetime.datetime.now()-r.created_at) for r in self.repos], key=lambda x: x[1])
-		newest = min([(r.name, datetime.datetime.now()-r.created_at) for r in self.repos], key=lambda x: x[1])
-		return (oldest[0], oldest[1]), (newest[0], newest[1])
+		if len(self.repos) > 0:
+			oldest = max([(r.name,  datetime.datetime.now()-r.created_at) for r in self.repos], key=lambda x: x[1])
+			newest = min([(r.name, datetime.datetime.now()-r.created_at) for r in self.repos], key=lambda x: x[1])
+			return (oldest[0], oldest[1]), (newest[0], newest[1])
+		else:
+			return None, None
 
 	def get_stars(self):
 		stars = [r.stars for r in self.repos if r.stars > 0]
@@ -191,7 +216,8 @@ class GHProfile(object):
 		return sum(forkers), len(forkers)
 
 	def get_active_repos(self):
-		repos = [[r.name, r.language, r.last_commit[:8], r.total_commits, r.last_updated, r.created_at] for r in self.repos]
+		two_months_ago = datetime.datetime.now()-datetime.timedelta(weeks=3*2)
+		repos = [[r.name, r.language, r.last_commit[:8], r.total_commits, r.last_updated, r.created_at] for r in self.repos if r.last_updated > two_months_ago]
 		repos.sort(key=lambda x: x[4], reverse=True)
 		for r in repos:
 			r[4] = humanize.naturaltime(r[4])
@@ -199,7 +225,7 @@ class GHProfile(object):
 		return repos
 
 	def get_inactive_repos(self):
-		six_months_ago = datetime.datetime.now()-datetime.timedelta(weeks=4*6)
+		six_months_ago = datetime.datetime.now()-datetime.timedelta(weeks=3*6)
 		repos = [[r.name, r.language, r.last_commit[:8], r.total_commits, r.last_updated, r.created_at] for r in self.repos if r.last_updated < six_months_ago]
 		repos.sort(key=lambda x: x[4])
 		for r in repos:
@@ -224,6 +250,7 @@ class GHProfileStats(object):
 		self,
 		username=None,
 		name=None,
+		location=None,
 		user_since=None,
 		last_active=None,
 		repo_num=None,
@@ -246,6 +273,7 @@ class GHProfileStats(object):
 	):
 		self.username = username
 		self.name = name
+		self.location = location
 		self.user_since = user_since
 		self.last_active = last_active
 		self.repo_num = repo_num
@@ -266,12 +294,12 @@ class GHProfileStats(object):
 		self.num_inactive_repos = num_inactive_repos
 		self.total_commits = total_commits
 
-	# @staticmethod
-	# def new(username):
-		# if username in chache:
-		#	return GHProfileStats.from_cache(username)
-		# else:
-		# return GHProfileStats.from_profile(GHProfile.from_github(username))
+	@staticmethod
+	def get(username):
+		if username in chache:
+			return GHProfileStats.from_cache(username)
+		else:
+			return GHProfileStats.from_profile(GHProfile.from_github(username))
 
 	@staticmethod
 	def from_cache(username):
@@ -284,6 +312,7 @@ class GHProfileStats(object):
 		return GHProfileStats(
 			username=profile.username,
 			name=profile.name,
+			location=profile.location,
 			user_since=profile.user_since,
 			last_active=profile.last_active,
 			repo_num=len(profile.repos),
@@ -306,47 +335,63 @@ class GHProfileStats(object):
 		)
 
 	def print_header(self):
-		print("REPORT FOR: %s\n" % (self.name))
+		print("REPORT FOR: %s\n" % (self.name or self.username))
 		print_section_header("User info")
 		print("    Github username: %s" % (self.username))
+		if self.location:
+			print ("    Location: %s" % (self.location))
 		print("    User since: %s [%s]" % (self.user_since.strftime("%d-%m-%Y"), humanize.naturaltime(datetime.datetime.now()-self.user_since)))
 		print("    Last active: %s" % (humanize.naturaltime(self.last_active)))
 		print("    Followers: %d [following %d]" % (self.followers, self.following))
-		print("    Github footprint: %s [%s minus forks]" % (humanize.naturalsize(self.footprint, gnu=True), humanize.naturalsize(self.footprint_minus_forks, gnu=True)))
+		if self.footprint > 0:
+			print("    Github footprint: %s [%s minus forks]" % (humanize.naturalsize(self.footprint, gnu=True), humanize.naturalsize(self.footprint_minus_forks, gnu=True)))
 		print()
 		print_section_header("Repositories")
-		print("    Repos: %s [%d forks, %d inactive for >6 months] " % (self.repo_num, self.forked_repo_num, self.num_inactive_repos))
+		if self.forked_repo_num > 0 or self.num_inactive_repos > 0:
+			extra = []
+			if self.forked_repo_num > 0:
+				extra.append("%d forks" % (self.forked_repo_num))
+			elif self.num_inactive_repos > 0:
+				extra.append("%d inactive for >6 months" % (self.num_inactive_repos))
+			extra_repo = " [%s]" % (", ".join(extra))
+		else:
+			extra_repo = ""
+		print("    Repos: %s%s" % (self.repo_num, extra_repo))
 		print("    Total commits: %d" % (self.total_commits))
 		print("    Stars: %d [over %d repos]" % (self.stars[0], self.stars[1]))
 		print("    Forkers: %d [over %d repos]" % (self.forkers[0], self.forkers[1]))
-		print("    Oldest repo: %s [%s]" % (self.oldest_repo[0], humanize.naturaltime(self.oldest_repo[1]).replace("ago", "old")))
-		print("    Newest repo: %s [%s]" % (self.newest_repo[0], humanize.naturaltime(self.newest_repo[1]).replace("ago", "old")))
-		print("    Average repo age: %s" % (humanize.naturaltime(self.avg_repo_age).replace("ago", "old")))
-		print("    Languages used: %s" % (len(self.langs)))
+		if self.repo_num > 0:
+			print("    Oldest repo: %s [%s]" % (self.oldest_repo[0], humanize.naturaltime(self.oldest_repo[1]).replace("ago", "old")))
+			print("    Newest repo: %s [%s]" % (self.newest_repo[0], humanize.naturaltime(self.newest_repo[1]).replace("ago", "old")))
+		if self.avg_repo_age:
+			print("    Average repo age: %s" % (humanize.naturaltime(self.avg_repo_age).replace("ago", "old")))
+		if len(self.langs) > 0:
+			print("    Languages used: %s" % (len(self.langs)))
 
 	def print_lang_breakdown(self):
-		print_section_header("Language breakdown")
-		table = [(l[0], humanize.naturalsize(l[2], gnu=True), l[1], int(l[3]/4)*"|", "{:3.2f}%".format(l[3])) for l in self.langs]
-		for t in tabulate(table, tablefmt="simple", headers=["", "footprint", "times used", " "*25, ""], stralign="right").split("\n"):
-			print("    %s" % (t))
+		if len(self.langs) > 0:
+			print_section_header("Language breakdown")
+			table = [(l[0], humanize.naturalsize(l[2], gnu=True), l[1], int(l[3]/4)*"|", "{:3.2f}%".format(l[3])) for l in self.langs]
+			for t in tabulate(table, tablefmt="simple", headers=["", "footprint", "times used", " "*25, ""], stralign="right").split("\n"):
+				print("    %s" % (t))
 
 	def print_active_repos(self):
-		print_section_header("Recently active repositories")
-		for t in tabulate(self.active_repos, tablefmt="simple", headers=["", "language", "last commit", "total commits", "last updated", "created"]).split("\n"):
-			print("    %s" % (t))
+		if len(self.active_repos) > 0:
+			print_section_header("Recently active repositories")
+			for t in tabulate(self.active_repos, tablefmt="simple", headers=["", "language", "last commit", "total commits", "last updated", "created"]).split("\n"):
+				print("    %s" % (t))
 
 	def print_inactive_repos(self):
-		print_section_header("Inactive repositories")
-		for t in tabulate(self.inactive_repos, tablefmt="simple", headers=["", "language", "last commit", "total commits", "last updated", "created"]).split("\n"):
-			print("    %s" % (t))
+		if len(self.inactive_repos) > 0:
+			print_section_header("Inactive repositories")
+			for t in tabulate(self.inactive_repos, tablefmt="simple", headers=["", "language", "last commit", "total commits", "last updated", "created"]).split("\n"):
+				print("    %s" % (t))
 
 	def print_popular_repos(self):
-		print_section_header("Popular repositories")
-		for t in tabulate(self.popular_repos, tablefmt="simple", headers=["", "stars", "forkers", "total commits", "last updated"]).split("\n"):
-			print("    %s" % (t))
-
-	def print_issue_breakdown(self):
-		pass
+		if len(self.popular_repos) > 0:
+			print_section_header("Popular repositories")
+			for t in tabulate(self.popular_repos, tablefmt="simple", headers=["", "stars", "forkers", "total commits", "last updated"]).split("\n"):
+				print("    %s" % (t))
 
 gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
 
@@ -357,17 +402,16 @@ from random import randrange
 import sys
 import zlib
 ts = "https://api.github.com/user/"
-test_users = []
-while len(test_users) <=25:
-	r = requests.get(ts+str(randrange(0, 10000901)))
-	if r:
-		print(r.json()["login"])
-		test_users.append(r.json()["login"])
+test_users = ['skilygui', 'pajikos', 'maddychennupati', 'Priceless1024', 'TesterTestowy', 'polo04rail', 'ebujan', 'alzhao', 'danacn', 'hsiw9uvh5p8', 'b23a2d7e7a', 'kongko', 'jiangxinghe', 'ksvbka', 'irispanda50', 'zerjioang', 'umas63', 'lynnwalker1129', 'hargrel', 'vtsuei2', 'dannyhunter2', 'MonicaPH', 'kevindennill', 'lmm523', 'hmartens']
+# while len(test_users) <=25:
+# 	r = requests.get(ts+str(randrange(0, 10000901)))
+# 	if r:
+# 		print(r.json()["login"])
+# 		test_users.append(r.json()["login"])
 
-print(test_users)
-
+debugs = []
 for tu in test_users:
-	print(tu)
+	print(tu+"\n")
 	start_t = time.time()
 	start_l = gh.rate_limiting[0]
 
@@ -378,29 +422,63 @@ for tu in test_users:
 	stats = GHProfileStats.from_ghprofile(roland)
 
 	c_s = time.time()
-	zlibd = humanize.naturalsize(sys.getsizeof(zlib.compress(bytes(json.dumps(stats.__dict__, default=date_handler).encode("utf-8")))), gnu=True)
+	zlibd = sys.getsizeof(zlib.compress(bytes(json.dumps(stats.__dict__, default=date_handler).encode("utf-8"))))
 	c_t = time.time()-c_s
 	DEBUG_INFO = {
 		"requests_took": time.time()-start_t,
 		"num_requests_made": start_l-gh.rate_limiting[0],
-		"profile_stats_size": humanize.naturalsize(sys.getsizeof(json.dumps(stats.__dict__, default=date_handler)), gnu=True),
+		"profile_stats_size": sys.getsizeof(json.dumps(stats.__dict__, default=date_handler)),
 		"profile_stats_gz_size": zlibd
 	}
+	debugs.append(DEBUG_INFO)
+
+	print_logo()
+	print()
+	stats.print_header()
+	print()
+	if len(stats.langs) > 0:
+		stats.print_lang_breakdown()
+		print()
+	if len(stats.popular_repos) > 0:
+		stats.print_popular_repos()
+		print()
+	if len(stats.active_repos) > 0:
+		stats.print_active_repos()
+		print()
+	if len(stats.inactive_repos) > 0:
+		stats.print_inactive_repos()
+		print()
+
 	print_section_header("DEBUG")
 	print("    requests took:        %.2fs" % (DEBUG_INFO["requests_took"]))
 	print("    num requests made:    %d" % (DEBUG_INFO["num_requests_made"]))
-	print("    stats size:           %s" % (DEBUG_INFO["profile_stats_size"]))
-	print("    stats size (zlib'd):  %s [took %.4fs-ish]" % (DEBUG_INFO["profile_stats_gz_size"], c_t))
+	print("    stats size:           %s" % (humanize.naturalsize(DEBUG_INFO["profile_stats_size"])))
+	print("    stats size (zlib'd):  %s [took %.4fs-ish]\n" % (humanize.naturalsize(DEBUG_INFO["profile_stats_gz_size"]), c_t))
+def avg(l):
+	return sum(l) / len(l)
+
+print_section_header("RUN STATS")
+print("  Average collection period:   %.2fs" % (avg([d["requests_took"] for d in debugs])))
+print("  Average requests:            %.2d" % (avg([d["num_requests_made"] for d in debugs])))
+print("  Average size:                %s" % (humanize.naturalsize(avg([d["profile_stats_size"] for d in debugs]))))
+print("  Average size (zlib'd):       %s" % (humanize.naturalsize(avg([d["profile_stats_gz_size"] for d in debugs]))))
+
+# roland = GHProfile.from_github("dannyhunter2")
+# stats = GHProfileStats.from_ghprofile(roland)
 
 # print_logo()
 # print()
 # stats.print_header()
 # print()
-# stats.print_lang_breakdown()
-# print()
-# stats.print_popular_repos()
-# print()
-# stats.print_active_repos()
-# print()
-# stats.print_inactive_repos()
-# print()
+# if len(stats.langs) > 0:
+# 	stats.print_lang_breakdown()
+# 	print()
+# if len(stats.popular_repos) > 0:
+# 	stats.print_popular_repos()
+# 	print()
+# if len(stats.active_repos) > 0:
+# 	stats.print_active_repos()
+# 	print()
+# if len(stats.inactive_repos) > 0:
+# 	stats.print_inactive_repos()
+# 	print()
