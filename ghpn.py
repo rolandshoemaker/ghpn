@@ -152,7 +152,11 @@ class GHProfile(object):
 		push_activity=None,
 		fork_activity=None,
 		create_activity=None,
-		issue_activity=None
+		issue_activity=None,
+		company=None,
+		hireable=None,
+		num_gists=None,
+		email=None
 	):
 		self.username = username
 		self.name = name
@@ -166,6 +170,10 @@ class GHProfile(object):
 		self.fork_activity = fork_activity
 		self.create_activity = create_activity
 		self.issue_activity = issue_activity
+		self.company = company
+		self.hireable = hireable
+		self.num_gists = num_gists
+		self.email = email
 
 	@staticmethod
 	def from_github(username):
@@ -224,7 +232,11 @@ class GHProfile(object):
 			push_activity=pushes,
 			fork_activity=forks,
 			create_activity=creates,
-			issue_activity=issues
+			issue_activity=issues,
+			company=ro.company,
+			hireable=ro.hireable,
+			num_gists=ro.public_gists,
+			email=ro.email
 		)
 
 	@staticmethod
@@ -261,25 +273,17 @@ class GHProfile(object):
 				push_activity=profile["push_activity"],
 				fork_activity=profile["fork_activity"],
 				create_activity=profile["create_activity"],
-				issue_activity=profile["issue_activity"]
+				issue_activity=profile["issue_activity"],
+				company=profile["company"],
+				hireable=profile["hireable"],
+				num_gists=profile["num_gists"],
+				email=profile["email"]
 			)
 
 	def to_file(self, filename):
 		with open(filename, "w") as f:
-			profile = {
-				"username": self.username,
-				"name": self.name,
-				"user_since": self.user_since,
-				"last_active": self.last_active,
-				"followers": self.followers,
-				"following": self.following,
-				"location": self.location,
-				"push_activity": self.push_activity,
-				"fork_activity": self.fork_activity,
-				"create_activity": self.create_activity,
-				"issue_activity": self.issue_activity,
-				"repos": [r.__dict__ for r in self.repos]
-			}
+			profile = self.__dict__
+			profile["repos"] = [r.__dict__ for r in profile["repos"]]
 			json.dump(profile, f, default=date_handler)
 
 	def get_lang_stats(self):
@@ -376,7 +380,11 @@ class GHProfileStats(object):
 		push_activity=None,
 		fork_activity=None,
 		create_activity=None,
-		issue_activity=None
+		issue_activity=None,
+		company=None,
+		hireable=None,
+		num_gists=None,
+		email=None
 	):
 		self.username = username
 		self.name = name
@@ -404,6 +412,10 @@ class GHProfileStats(object):
 		self.fork_activity = fork_activity
 		self.create_activity = create_activity
 		self.issue_activity = issue_activity
+		self.company = company
+		self.hireable = hireable
+		self.num_gists = num_gists
+		self.email = email
 
 	@staticmethod
 	def get(username):
@@ -439,7 +451,11 @@ class GHProfileStats(object):
 			push_activity=profile.push_activity,
 			fork_activity=profile.fork_activity,
 			create_activity=profile.create_activity,
-			issue_activity=profile.issue_activity
+			issue_activity=profile.issue_activity,
+			company=profile.company,
+			hireable=profile.hireable,
+			num_gists=profile.num_gists,
+			email=profile.email
 		)
 
 	@staticmethod
@@ -481,7 +497,11 @@ class GHProfileStats(object):
 			push_activity=stats_json["push_activity"],
 			fork_activity=stats_json["fork_activity"],
 			create_activity=stats_json["create_activity"],
-			issue_activity=stats_json["issue_activity"]
+			issue_activity=stats_json["issue_activity"],
+			company=stats_json["company"],
+			hireable=stats_json["hireable"],
+			num_gists=stats_json["num_gists"],
+			email=stats_json["email"]
 		)
 
 	def to_json(self):
@@ -493,11 +513,19 @@ class GHProfileStats(object):
 		output.append("    Github username: %s" % (self.username))
 		if self.name:
 			output.append("    Name: %s" % (self.name))
+		if self.company:
+			output.append("    Company: %s" % (self.company))
 		if self.location:
 			output.append("    Location: %s" % (self.location))
+		if self.email:
+			output.append("    Email: %s" % (self.email))
+		if self.hireable:
+			output.append("    Hireable: [TRUE]")
 		output.append("    User since: %s [%s]" % (self.user_since.strftime("%d-%m-%Y"), humanize.naturaltime(datetime.datetime.now()-self.user_since)))
 		output.append("    Last active: %s" % (humanize.naturaltime(self.last_active)))
 		output.append("    Followers: %d [following %d]" % (self.followers, self.following))
+		if self.num_gists > 0:
+			output.append("    Gists: %d" % (self.num_gists))
 		if self.footprint > 0:
 			if self.footprint_minus_forks:
 				extra = " [%s minus forks]" % humanize.naturalsize(self.footprint_minus_forks, gnu=True)
@@ -627,50 +655,32 @@ class GHProfileStats(object):
 	def _debug_remaining_requests():
 		return gh.rate_limiting
 
-def testing():
-	# debug, debug, debug, benching?
-	# debug imports
+def sample_gh_users(pages=5):
 	import requests
-	from random import randrange
-	import sys
-	import zlib
-	ts = "https://api.github.com/user/"
-	test_users = [] # ['skilygui', 'pajikos', 'maddychennupati', 'Priceless1024', 'TesterTestowy', 'polo04rail', 'ebujan', 'alzhao', 'danacn', 'hsiw9uvh5p8', 'b23a2d7e7a', 'kongko', 'jiangxinghe', 'ksvbka', 'irispanda50', 'zerjioang', 'umas63', 'lynnwalker1129', 'hargrel', 'vtsuei2', 'dannyhunter2', 'MonicaPH', 'kevindennill', 'lmm523', 'hmartens']
-	while len(test_users) <=25:
-		r = requests.get(ts+str(randrange(200000, 10000901)))
-		if r:
-			print(r.json()["login"])
-			test_users.append(r.json()["login"])
-	print(test_users)
 
+	events = [requests.get("https://api.github.com/events?page=%d" % (r)).json() for r in range(pages)]
+	users = []
+	for ep in events:
+		users += [e["actor"]["login"] for e in ep]
+	return users
+
+def testing(test_users):
 	debugs = []
 	for tu in test_users:
 		print(tu+"\n")
 		start_t = time.time()
 		start_l = gh.rate_limiting[0]
-
 		roland = GHProfile.from_github(tu)
-		# roland = GHProfile.from_github("rolandshoemaker")
-		# GHProfile.from_github("rolandshoemaker").to_file("rolandshoemaker.json")
-		# roland = GHProfile.from_file("rolandshoemaker.json")
-		stats = GHProfileStats.from_ghprofile(roland)
-
 		c_s = time.time()
-		zlibd = sys.getsizeof(zlib.compress(bytes(json.dumps(stats.__dict__, default=date_handler).encode("utf-8"))))
 		c_t = time.time()-c_s
 		DEBUG_INFO = {
 			"requests_took": time.time()-start_t,
 			"num_requests_made": start_l-gh.rate_limiting[0],
-			"profile_stats_size": sys.getsizeof(json.dumps(stats.__dict__, default=date_handler)),
-			"profile_stats_gz_size": zlibd
 		}
 		debugs.append(DEBUG_INFO)
-
 		section_header_block("DEBUG")
 		print("    requests took:        %.2fs" % (DEBUG_INFO["requests_took"]))
 		print("    num requests made:    %d" % (DEBUG_INFO["num_requests_made"]))
-		print("    stats size:           %s" % (humanize.naturalsize(DEBUG_INFO["profile_stats_size"])))
-		print("    stats size (zlib'd):  %s [took %.4fs-ish]\n" % (humanize.naturalsize(DEBUG_INFO["profile_stats_gz_size"]), c_t))
 
 	def avg(l):
 		return sum(l) / len(l)
@@ -678,8 +688,6 @@ def testing():
 	section_header_block("RUN STATS")
 	print("  Average collection period:   %.2fs" % (avg([d["requests_took"] for d in debugs])))
 	print("  Average requests:            %.2d" % (avg([d["num_requests_made"] for d in debugs])))
-	print("  Average size:                %s" % (humanize.naturalsize(avg([d["profile_stats_size"] for d in debugs]))))
-	print("  Average size (zlib'd):       %s" % (humanize.naturalsize(avg([d["profile_stats_gz_size"] for d in debugs]))))
 
 def run():
 	import sys
@@ -690,3 +698,4 @@ def run():
 
 if __name__ == "__main__":
 	run()
+	# testing(sample_gh_users())

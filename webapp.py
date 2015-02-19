@@ -5,10 +5,10 @@ from datetime import datetime
 
 from ghpn import GHProfileStats, logo_block
 
-STATS_CACHE_LENGTH = 14400
+STATS_CACHE_LENGTH = 43200
 
 app = Flask(__name__)
-app.redis = StrictRedis(host="localhost")
+app.cache = StrictRedis(host="localhost", db=0)
 app.debug = True
 
 def compress(stuff):
@@ -18,24 +18,17 @@ def decompress(stuff):
 	return zlib.decompress(stuff).decode("utf-8")
 
 def get_usage_graph():
-	usage = json.loads(decompress(app.redis.get("ghpn-s")))
-	return GHProfileStats.construct_event_graph_block("Currently cached users over 24hr", usage, height=20)
+	usage = json.loads(decompress(app.cache.get("ghpn-s")))
+	return GHProfileStats.construct_event_graph_block("User cache size over 24hr", usage, height=20)
 
 def get_stats(username):
-	r_profile = app.redis.get("ghpn:%s" % (username))
+	r_profile = app.cache.get("ghpn:%s" % (username))
 	if r_profile:
 		# decompress
 		profile = GHProfileStats.from_json(decompress(r_profile))
+		return profile, 200
 	else:
-		profile = GHProfileStats.get(username)
-		if not profile:
-			# FIXME: return a bad thing!
-			pass
-		# compress and store in redis
-		compressed_profile = compress(profile.to_json())
-		# need to set expire too!
-		app.redis.setex("ghpn:%s" % (username), STATS_CACHE_LENGTH, compressed_profile) 
-	return profile, 200
+		pass		
 
 @app.route("/")
 def index():
