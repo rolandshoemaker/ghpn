@@ -1,13 +1,15 @@
 import github
 from github.GithubException import GithubException
 
+import socket
+
 import json, datetime, os
 import time
 import dateutil.parser
 from tabulate import tabulate
 import humanize
 
-gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
+gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"], per_page=100, timeout=2)
 VERSION = "0.0.5"
 
 def date_handler(obj):
@@ -203,18 +205,17 @@ class GHProfile(object):
 				created_at=r.created_at,
 				last_commit=last_commit
 			)
-			tries = 0
-			while True:
-				try:
-					commits = r.get_stats_contributors()
-					if commits:
-						repo.total_commits = sum(t.total for t in commits if t.author.login == username)
-						break
-					tries += 1
-					if tries > 5:
-						break
-				except TypeError:
-					break
+
+			def get_commits(username):
+				c = r.get_stats_contributors()
+				print(c)
+				if c:
+					return sum(t.total for t in c if t.author.login == username)
+
+			commits = get_commits(username)
+			if commits is not None:
+				time.sleep(0.2)
+				commits = get_commits(username) or 0
 
 			ro_repos.append(repo)
 
@@ -681,6 +682,7 @@ def testing(test_users):
 		section_header_block("DEBUG")
 		print("    requests took:        %.2fs" % (DEBUG_INFO["requests_took"]))
 		print("    num requests made:    %d" % (DEBUG_INFO["num_requests_made"]))
+		print("    tpr:                  %.3f" % (DEBUG_INFO["requests_took"]/DEBUG_INFO["num_requests_made"]))
 
 	def avg(l):
 		return sum(l) / len(l)
@@ -697,5 +699,5 @@ def run():
 	print("\n\n".join(stats.get_all_blocks()))
 
 if __name__ == "__main__":
-	run()
-	# testing(sample_gh_users())
+	# run()
+	testing(sample_gh_users())
