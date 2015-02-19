@@ -30,7 +30,7 @@ def logo_block(name=None):
 	output.append("#    /\____/        \ \_\          ")
 	output.append("#    \_/__/          \/_/          ")
 	output.append("#")
-	output.append("# github parents night v%s" % (VERSION))
+	output.append("#   github parents night v%s" % (VERSION))
 	if name:
 		output += ["#", "# REPORT FOR: %s" % (name)]
 	return "\n".join(output)
@@ -41,15 +41,21 @@ def section_header_block(header):
 
 def flatten_event_list(events):
 	flat = {}
+	# hacky hack if people have so many events
+	# that they are all from one day...
+	if (max(events, key=lambda x: x.created_at)-min(events, key=lambda x: x.created_at)).days <= 0:
+		time_split = "%d-%m-%Y %H"
+	else:
+		time_split = "%d-%m-%Y"
 	for e in events:
-		d_key = e.created_at.strftime("%d-%m-%Y")
+		d_key = e.created_at.strftime(time_split)
 		if flat.get(d_key, None):
 			flat[d_key].append(e)
 		else:
 			flat[d_key] = []
 			flat[d_key].append(e)
 	flatr = [[k, len(v)] for k, v in flat.items()]
-	flatr.sort(key=lambda x: x[0])
+	flatr.sort(key=lambda x: dateutil.parser.parse(x[0]))
 	return flatr
 
 def reduce_events(events, cutoff=25):
@@ -280,7 +286,7 @@ class GHProfile(object):
 		return langs
 
 	def get_repos_footprint(self):
-		return sum(r.size for r in self.repos), sum(r.size for r in self.repos if not r.is_forkd)
+		return sum(r.size for r in self.repos), sum(r.size for r in self.repos if not r.is_forkd) or None
 
 	def get_avg_repo_age(self):
 		if len(self.repos) > 0:
@@ -479,7 +485,11 @@ class GHProfileStats(object):
 		output.append("    Last active: %s" % (humanize.naturaltime(self.last_active)))
 		output.append("    Followers: %d [following %d]" % (self.followers, self.following))
 		if self.footprint > 0:
-			output.append("    Github footprint: %s [%s minus forks]" % (humanize.naturalsize(self.footprint, gnu=True), humanize.naturalsize(self.footprint_minus_forks, gnu=True)))
+			if self.footprint_minus_forks:
+				extra = " [%s minus forks]" % humanize.naturalsize(self.footprint_minus_forks, gnu=True)
+			else:
+				extra = ""
+			output.append("    Github footprint: %s%s" % (humanize.naturalsize(self.footprint, gnu=True), extra))
 		return "\n".join(output)
 
 	def repo_block(self):
@@ -545,12 +555,13 @@ class GHProfileStats(object):
 		if event_tuples:
 			output = []
 			line_length = len(event_tuples)
-			if line_length < 10:
-				modi = 15
-			elif line_length > 75:
-				modi = 1
-			else:
-				modi = 2
+			# if line_length < 10:
+			#	modi = 15
+			# elif line_length > 75:
+			#	modi = 1
+			# else:
+			#	modi = 2
+			modi = 2
 			e_max = max(event_tuples, key=lambda x: x[1])[1]
 			def trans(value, event_max=e_max, graph_max=height):
 				return ((graph_max)*(value)/(event_max))
@@ -584,11 +595,11 @@ class GHProfileStats(object):
 			self.lang_breakdown_block(),
 			self.popular_repos_block(),
 			self.construct_event_graph_block("Push chart", self.push_activity),
+			self.active_repos_block(),
+			self.inactive_repos_block(),
 			self.construct_event_graph_block("New repository chart", self.create_activity),
 			self.construct_event_graph_block("Issue comments chart", self.issue_activity),
-			self.construct_event_graph_block("Fork chart", self.fork_activity),
-			self.active_repos_block(),
-			self.inactive_repos_block()
+			self.construct_event_graph_block("Fork chart", self.fork_activity)
 		]
 		return [b for b in blocks if b]
 

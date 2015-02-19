@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>ghpn</title>
+		<style>
+			body {
+				background: #EEEEEE;
+				color: grey;
+			}
+			.logo {
+				width: 473px;
+				margin: 0 auto;
+			}
+			code {
+				font-family: "Lucida Console", Monaco, monospace;
+				font-size: 1.4em;
+			}
+			.search {
+				width: 440px;
+				margin: 60px auto;
+			}
+			input {
+				width: 440px;
+				height: 40px;
+				border: none;
+				box-sizing: border-box;
+				font-size: 1em;
+				padding: 5px 5px 5px 45px;
+			}
+			@media only screen and (min-width: 768px) {
+				code {
+					font-size: 2em;
+				}
+				.logo {
+					width: 675px;
+				}
+				.search {
+					width: 650px;
+					margin: 80px auto;
+				}
+				input {
+					width: 650px;
+					height: 75px;
+					font-size: 2em;
+				}
+			}
+		</style>
+		<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+	</head>
+	<body id="home">
+		<div class="logo">
+			<pre><code>{{logo}}</code></pre>
+		</div>
+		<div class="search">
+			<form id="search">
+				<input type="text" placeholder="username">
+			</form>
+		</div>
+		<div class="about">
+			stuff!
+		</div>
+		<script>
+			var colors = ["#D56B6B", "#7ED56B", "#6BD5C1", "#6BA9D5", "#6B70D5", "#BA6BD5", "#D56B7B"];
+			var rand_color = colors[Math.floor(Math.random()*colors.length)];
+			console.log("color: "+rand_color)
+			// color the logo block
+			document.getElementsByClassName("logo")[0].style.color = rand_color;
+
+			$("#search").submit(function(e) {
+				$("input").attr("disabled", "disabled");
+				e.preventDefault();
+				window.location.href = "http://"+window.location.host+"/"+$("input:first").val();
+			})
+		</script>
+	</body>
+</html>

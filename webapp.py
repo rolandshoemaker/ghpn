@@ -2,12 +2,13 @@ from flask import Flask, Response, jsonify, render_template
 from redis import StrictRedis
 import zlib
 
-from ghpn import GHProfileStats
+from ghpn import GHProfileStats, logo_block
 
 STATS_CACHE_LENGTH = 7200
 
 app = Flask(__name__)
 app.redis = StrictRedis(host="localhost")
+app.debug = True
 
 def get_stats(username):
 	r_profile = app.redis.get("ghpn:%s" % (username))
@@ -29,7 +30,7 @@ def get_stats(username):
 @app.route("/")
 def index():
 	# search box and SUPER short intro/about
-	return "lol"
+	return render_template("index.html", logo=logo_block())
 
 @app.route("/<string:username>")
 def get_user(username):
@@ -42,4 +43,4 @@ def get_user(username):
 	return render_template("user.html", blocks=blocks, username=stats.username)
 
 if __name__ == "__main__":
-	app.run(debug=True, host="10.0.0.31")
+	app.run(host="10.0.0.31")
