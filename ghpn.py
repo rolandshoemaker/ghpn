@@ -40,23 +40,32 @@ def section_header_block(header):
 	return "%s\n# %s #\n%s\n" % (h_len, header, h_len)
 
 def flatten_event_list(events):
-	flat = {}
-	# hacky hack if people have so many events
-	# that they are all from one day...
-	if (max(events, key=lambda x: x.created_at)-min(events, key=lambda x: x.created_at)).days <= 0:
-		time_split = "%d-%m-%Y %H"
-	else:
-		time_split = "%d-%m-%Y"
-	for e in events:
-		d_key = e.created_at.strftime(time_split)
-		if flat.get(d_key, None):
-			flat[d_key].append(e)
+	if len(events) > 0:
+		# hacky hack if people have so many events
+		# that they are all from one day...
+		flat = {}
+		start = min(events, key=lambda x: x.created_at).created_at
+		end = max(events, key=lambda x: x.created_at).created_at
+		if (end-start).days <= 0:
+			time_split = "%H"
 		else:
-			flat[d_key] = []
-			flat[d_key].append(e)
-	flatr = [[k, len(v)] for k, v in flat.items()]
-	flatr.sort(key=lambda x: dateutil.parser.parse(x[0]))
-	return flatr
+			time_split = "%d-%m-%Y"
+		for e in events:
+			d_key = e.created_at.strftime(time_split)
+			if flat.get(d_key, None):
+				flat[d_key].append(e)
+			else:
+				flat[d_key] = []
+				flat[d_key].append(e)
+		# hackHACKHACKSOBAD
+		if time_split == "%d-%m-%Y":
+			for day in range((end-start).days):
+				today = (start+datetime.timedelta(days=day)).strftime(time_split)
+				if not flat.get(today, None):
+					flat[today] = []
+		flatr = [[k, len(v)] for k, v in flat.items()]
+		flatr.sort(key=lambda x: dateutil.parser.parse(x[0]))
+		return flatr
 
 def reduce_events(events, cutoff=25):
 	pushes = []
@@ -438,8 +447,13 @@ class GHProfileStats(object):
 		stats_json = json.loads(stats_json)
 
 		oldest, newest = stats_json["oldest_repo"], stats_json["newest_repo"]
-		oldest[1] = datetime.timedelta(seconds=oldest[1])
-		newest[1] = datetime.timedelta(seconds=newest[1])
+		if oldest and newest:
+			oldest[1] = datetime.timedelta(seconds=oldest[1])
+			newest[1] = datetime.timedelta(seconds=newest[1])
+		if stats_json["avg_repo_age"]:
+			avg_repo_age = datetime.timedelta(seconds=stats_json["avg_repo_age"])
+		else:
+			avg_repo_age = None
 
 		return GHProfileStats(
 			username=stats_json["username"],
@@ -458,7 +472,7 @@ class GHProfileStats(object):
 			following=stats_json["following"],
 			oldest_repo=oldest,
 			newest_repo=newest, 
-			avg_repo_age=datetime.timedelta(seconds=stats_json["avg_repo_age"]),
+			avg_repo_age=avg_repo_age,
 			popular_repos=stats_json["popular_repos"],
 			active_repos=stats_json["active_repos"],
 			inactive_repos=stats_json["inactive_repos"],
@@ -571,7 +585,7 @@ class GHProfileStats(object):
 			for row in range(height, 0, -1):
 				table += "        "
 				for col in range(line_length):
-					if trans(event_tuples[col][1]) > row:
+					if trans(event_tuples[col][1]) >= row:
 						table += "#"*modi
 					else:
 						table += " "*modi
@@ -579,11 +593,17 @@ class GHProfileStats(object):
 				if row == height:
 					table += "%d\n" % (e_max)
 				elif row == 1:
-					table += "%d\n" % (row)
+					table += "~1\n"
 				else:
 					table += "\n"
 			output.append(table+"        "+"-"*(modi*line_length)+"/")
-			output.append(str("    {: <%d} {: >%d}" % ((modi*line_length/2)+4, (modi*line_length/2)+4)).format(event_tuples[0][0], event_tuples[-1][0]))
+			if len(str(event_tuples[0][0]))/2 <= 4:
+				padding = 4
+			else:
+				padding = 0
+			padding += 4
+			padding = " "*padding
+			output.append(str("{}{: <%d}{: >%d}" % ((modi*line_length/2)+(len(str(event_tuples[0][0]))/2), (modi*line_length/2)+((len(str(event_tuples[0][0]))/2)))).format(padding, event_tuples[0][0], event_tuples[-1][0]))
 			return "\n".join(output)
 
 	def get_all_blocks(self):
@@ -602,6 +622,10 @@ class GHProfileStats(object):
 			self.construct_event_graph_block("Fork chart", self.fork_activity)
 		]
 		return [b for b in blocks if b]
+
+	@staticmethod
+	def _debug_remaining_requests():
+		return gh.rate_limiting
 
 def testing():
 	# debug, debug, debug, benching?

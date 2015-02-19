@@ -1,28 +1,38 @@
-from flask import Flask, Response, jsonify, render_template
+from flask import Flask, Response, jsonify, render_template, send_from_directory
 from redis import StrictRedis
-import zlib
+import zlib, json
+from datetime import datetime
 
 from ghpn import GHProfileStats, logo_block
 
-STATS_CACHE_LENGTH = 7200
+STATS_CACHE_LENGTH = 14400
 
 app = Flask(__name__)
 app.redis = StrictRedis(host="localhost")
 app.debug = True
 
+def compress(stuff):
+	return zlib.compress(bytes(stuff.encode("utf-8")))
+
+def decompress(stuff):
+	return zlib.decompress(stuff).decode("utf-8")
+
+def get_usage_graph():
+	usage = json.loads(decompress(app.redis.get("ghpn-s")))
+	return GHProfileStats.construct_event_graph_block("Currently cached users over 24hr", usage, height=20)
+
 def get_stats(username):
 	r_profile = app.redis.get("ghpn:%s" % (username))
 	if r_profile:
 		# decompress
-		decompressed_profile = zlib.decompress(r_profile).decode("utf-8")
-		profile = GHProfileStats.from_json(decompressed_profile)
+		profile = GHProfileStats.from_json(decompress(r_profile))
 	else:
 		profile = GHProfileStats.get(username)
 		if not profile:
 			# FIXME: return a bad thing!
 			pass
 		# compress and store in redis
-		compressed_profile = zlib.compress(bytes(profile.to_json().encode("utf-8")))
+		compressed_profile = compress(profile.to_json())
 		# need to set expire too!
 		app.redis.setex("ghpn:%s" % (username), STATS_CACHE_LENGTH, compressed_profile) 
 	return profile, 200
@@ -30,7 +40,7 @@ def get_stats(username):
 @app.route("/")
 def index():
 	# search box and SUPER short intro/about
-	return render_template("index.html", logo=logo_block())
+	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests())
 
 @app.route("/<string:username>")
 def get_user(username):

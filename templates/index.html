@@ -7,6 +7,7 @@
 			body {
 				background: #EEEEEE;
 				color: grey;
+				font-family: "Lucida Console", Monaco, monospace;
 			}
 			.logo {
 				width: 473px;
@@ -27,6 +28,28 @@
 				box-sizing: border-box;
 				font-size: 1em;
 				padding: 5px 5px 5px 45px;
+				outline: none;
+				text-align: center;
+			}
+			input:disabled {
+				background: #E7E7E7;
+				color: grey;
+			}
+			input:focus {
+				background: #D8D8D8;
+			}
+			.about {
+				width: 600px;
+				margin: 15px auto;
+				font-size: 1em;
+				text-align: center;
+			}
+			.usage {
+				width: 589px;
+				margin: 35px auto;
+			}
+			.usage code {
+				font-size: 1em;
 			}
 			@media only screen and (min-width: 768px) {
 				code {
@@ -37,7 +60,7 @@
 				}
 				.search {
 					width: 650px;
-					margin: 80px auto;
+					margin: 80px auto 30px auto;
 				}
 				input {
 					width: 650px;
@@ -47,6 +70,7 @@
 			}
 		</style>
 		<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/octicons/2.1.2/octicons.css"
 	</head>
 	<body id="home">
 		<div class="logo">
@@ -58,7 +82,10 @@
 			</form>
 		</div>
 		<div class="about">
-			stuff!
+			my insides live on <a href="https://github.com/rolandshoemaker/ghpn"><span class="octicon octicon-octoface"></span></a>. {{rl}}
+		</div>
+		<div class="usage">
+			<pre><code>{{usage}}</code></pre>
 		</div>
 		<script>
 			var colors = ["#D56B6B", "#7ED56B", "#6BD5C1", "#6BA9D5", "#6B70D5", "#BA6BD5", "#D56B7B"];
@@ -66,6 +93,7 @@
 			console.log("color: "+rand_color)
 			// color the logo block
 			document.getElementsByClassName("logo")[0].style.color = rand_color;
+			document.getElementsByClassName("usage")[0].style.color = rand_color;
 
 			$("#search").submit(function(e) {
 				$("input").attr("disabled", "disabled");
