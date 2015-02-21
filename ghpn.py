@@ -66,7 +66,8 @@ def flatten_event_list(events):
 				if not flat.get(today, None):
 					flat[today] = []
 		flatr = [[k, len(v)] for k, v in flat.items()]
-		flatr.sort(key=lambda x: dateutil.parser.parse(x[0]))
+		if time_split == "%d-%m-%Y":
+			flatr.sort(key=lambda x: dateutil.parser.parse(x[0], dayfirst=True))
 		return flatr
 
 def reduce_events(events, cutoff=25):
@@ -184,15 +185,26 @@ class GHProfile(object):
 		ro_repo_uris = ro.get_repos()
 		ro_repos = []
 
+		def get_commits(bypass=False):
+			c = r.get_stats_contributors()
+			if not c in [{}, None]:
+				return sum(t.total for t in c if t.author.login == username)
+			else:
+				if bypass:
+					return 0
+				time.sleep(0.2)
+				return get_commits(bypass=True)
+
 		for r in ro_repo_uris:
 			try:
 				last_commit = r.get_commits()[0].sha # prob better way!
 			except GithubException:
 				last_commit = ""
+
 			repo = GHRepo(
 				name=r.name,
 			    is_forkd=r.fork,
-				total_commits=0,
+				total_commits=get_commits(), # guhhhh
 				last_month_commits=None,
 				stars=r.stargazers_count,
 				watchers=r.watchers_count, # WRONG
@@ -205,17 +217,6 @@ class GHProfile(object):
 				created_at=r.created_at,
 				last_commit=last_commit
 			)
-
-			def get_commits(username):
-				c = r.get_stats_contributors()
-				print(c)
-				if c:
-					return sum(t.total for t in c if t.author.login == username)
-
-			commits = get_commits(username)
-			if commits is not None:
-				time.sleep(0.2)
-				commits = get_commits(username) or 0
 
 			ro_repos.append(repo)
 
@@ -257,15 +258,15 @@ class GHProfile(object):
 				languages=r["languages"],
 				size=r["size"],
 				open_issues=r["open_issues"],
-				last_updated=dateutil.parser.parse(r["last_updated"]),
-				created_at=dateutil.parser.parse(r["created_at"]),
+				last_updated=dateutil.parser.parse(r["last_updated"], dayfirst=True),
+				created_at=dateutil.parser.parse(r["created_at"], dayfirst=True),
 				last_commit=r["last_commit"]
 			) for r in profile["repos"]]
 
 			return GHProfile(
 				username=profile["username"],
-				user_since=dateutil.parser.parse(profile["user_since"]),
-				last_active=dateutil.parser.parse(profile["last_active"]),
+				user_since=dateutil.parser.parse(profile["user_since"], dayfirst=True),
+				last_active=dateutil.parser.parse(profile["last_active"], dayfirst=True),
 				followers=profile["followers"],
 				following=profile["following"],
 				name=profile["name"],
@@ -476,8 +477,8 @@ class GHProfileStats(object):
 			username=stats_json["username"],
 			name=stats_json["name"],
 			location=stats_json["location"],
-			user_since=dateutil.parser.parse(stats_json["user_since"]),
-			last_active=dateutil.parser.parse(stats_json["last_active"]),
+			user_since=dateutil.parser.parse(stats_json["user_since"], dayfirst=True),
+			last_active=dateutil.parser.parse(stats_json["last_active"], dayfirst=True),
 			repo_num=stats_json["repo_num"],
 			forked_repo_num=stats_json["forked_repo_num"],
 			langs=stats_json["langs"],
@@ -620,7 +621,7 @@ class GHProfileStats(object):
 						table += " "*modi
 				table += "| "
 				if row == height:
-					table += "%d\n" % (e_max)
+					table += "~%d\n" % (e_max)
 				elif row == 1:
 					table += "~1\n"
 				else:
@@ -656,10 +657,10 @@ class GHProfileStats(object):
 	def _debug_remaining_requests():
 		return gh.rate_limiting
 
-def sample_gh_users(pages=5):
+def sample_gh_users(pages=1):
 	import requests
 
-	events = [requests.get("https://api.github.com/events?page=%d" % (r)).json() for r in range(pages)]
+	events = [requests.get("https://api.github.com/events?page=%d&per_page=100" % (r)).json() for r in range(pages)]
 	users = []
 	for ep in events:
 		users += [e["actor"]["login"] for e in ep]
@@ -672,13 +673,13 @@ def testing(test_users):
 		start_t = time.time()
 		start_l = gh.rate_limiting[0]
 		roland = GHProfile.from_github(tu)
-		c_s = time.time()
-		c_t = time.time()-c_s
 		DEBUG_INFO = {
 			"requests_took": time.time()-start_t,
 			"num_requests_made": start_l-gh.rate_limiting[0],
 		}
 		debugs.append(DEBUG_INFO)
+		stats = GHProfileStats.from_ghprofile(roland)
+		print("\n\n".join(stats.get_all_blocks()))
 		section_header_block("DEBUG")
 		print("    requests took:        %.2fs" % (DEBUG_INFO["requests_took"]))
 		print("    num requests made:    %d" % (DEBUG_INFO["num_requests_made"]))
@@ -695,7 +696,6 @@ def run():
 	import sys
 	roland = GHProfile.from_github(sys.argv[1])
 	stats = GHProfileStats.from_ghprofile(roland)
-
 	print("\n\n".join(stats.get_all_blocks()))
 
 if __name__ == "__main__":
