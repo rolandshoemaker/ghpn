@@ -724,7 +724,7 @@ def run():
 
 	print("\n\n".join(stats.get_all_blocks()))
 
-	print("\n\n")
+	print("\n")
 	section_header_block("DEBUG")
 	print("    requests took:        %.2fs" % (r_end_t-r_start_t))
 	print("    stats gen took:       %.6fs" % (s_end_t-s_start_t))
