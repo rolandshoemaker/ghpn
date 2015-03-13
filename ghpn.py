@@ -1,5 +1,6 @@
-import github
-from github.GithubException import GithubException
+# import github
+# from github.GithubException import GithubException
+from github3 import login
 
 import socket
 
@@ -9,8 +10,12 @@ import dateutil.parser
 from tabulate import tabulate
 import humanize
 
-gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"], per_page=100, timeout=2)
+# gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"], per_page=100, timeout=2)
+gh = login(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
 VERSION = "0.0.5"
+
+GLOBAL_PARAMS = {"per_page": 100}
+ACCEPTED_WAIT = 0.25
 
 def date_handler(obj):
     if isinstance(obj, datetime.datetime):
@@ -181,55 +186,62 @@ class GHProfile(object):
 	@staticmethod
 	def from_github(username, json_errors=False):
 		# this is where ALL the requests come from (at least they should)
-		ro = gh.get_user(username)
-		ro_repo_uris = ro.get_repos()
+		ro = gh.user(username)
+		repos_iter = gh.iter_user_repos(username)
+		repos_iter.params = GLOBAL_PARAMS
+
+		def get_user_commits():
+			total = 0
+			contrib_iter = r.iter_contributor_statistics()
+			contrib_iter.params = GLOBAL_PARAMS
+			for contributor in contrib_iter:
+				while True:
+					if not contrib_iter.last_status == 202:
+						if contributor.author.login == username:
+							total += contributor.total
+						break
+					else:
+						time.sleep(ACCEPTED_WAIT)
+			return total
+
 		ro_repos = []
+		for r in repos_iter:
+			#try:
+			#	last_commit = r.get_commits()[0].sha # prob better way!
+			#except GithubException:
+			last_commit = ""
 
-		def get_commits(bypass=False):
-			try:
-				c = r.get_stats_contributors()
-			except TypeError:
-				c = None
-			if not c in [{}, None]:
-				return sum(t.total for t in c if t.author.login == username)
-			else:
-				if bypass:
-					return 0
-				time.sleep(0.2)
-				return get_commits(bypass=True)
-
-		for r in ro_repo_uris:
-			try:
-				last_commit = r.get_commits()[0].sha # prob better way!
-			except GithubException:
-				last_commit = ""
-
+			lang_iter = r.iter_languages()
+			lang_iter.params = GLOBAL_PARAMS
 			repo = GHRepo(
 				name=r.name,
 			    is_forkd=r.fork,
-				total_commits=get_commits(), # guhhhh
+				total_commits=get_user_commits(), # guhhhh
 				last_month_commits=None,
-				stars=r.stargazers_count,
-				watchers=r.watchers_count, # WRONG
+				stars=r.stargazers,
+				watchers=r.watchers, # WRONG
 				forks=r.forks_count,
 				language=r.language,
-				languages=r.get_languages(), # bytes
+				languages=[l for l in lang_iter], # bytes
 				size=r.size*1000, # kb i think
 				open_issues=r.open_issues_count,
-				last_updated=r.updated_at,
-				created_at=r.created_at,
+				last_updated=r.updated_at.replace(tzinfo=None),
+				created_at=r.created_at.replace(tzinfo=None),
 				last_commit=last_commit
 			)
 
 			ro_repos.append(repo)
 
-		pushes, creates, forks, issues = reduce_events(ro.get_events())
+		event_iter = ro.iter_events()
+		event_iter.params = GLOBAL_PARAMS
+		pushes, creates, forks, issues = reduce_events([e for e in event_iter])
 
+		user_last_active = datetime.datetime.strptime(ro._json_data["updated_at"], "%Y-%m-%dT%H:%M:%SZ")
 		return GHProfile(
 			username=username,
 			name=ro.name,
-			user_since=ro.created_at,
-			last_active=ro.updated_at,
+			user_since=ro.created_at.replace(tzinfo=None),
+			last_active=user_last_active,
 			followers=ro.followers,
 			following=ro.following,
 			repos=ro_repos,
@@ -294,7 +306,7 @@ class GHProfile(object):
 	def get_lang_stats(self):
 		langs = {}
 		for r in self.repos:
-			for k, v in r.languages.items():
+			for k, v in r.languages:
 				if not langs.get(k): langs[k] = {"bytes": 0, "used": 0}
 				langs[k]["bytes"] += v
 				langs[k]["used"] += 1
@@ -308,13 +320,13 @@ class GHProfile(object):
 
 	def get_avg_repo_age(self):
 		if len(self.repos) > 0:
-			ages = [datetime.datetime.now()-r.created_at for r in self.repos]
+			ages = [datetime.datetime.utcnow()-r.created_at for r in self.repos]
 			return sum(ages, datetime.timedelta(0))/len(ages)
 
 	def get_repo_age_range(self):
 		if len(self.repos) > 0:
-			oldest = max([(r.name,  datetime.datetime.now()-r.created_at) for r in self.repos], key=lambda x: x[1])
-			newest = min([(r.name, datetime.datetime.now()-r.created_at) for r in self.repos], key=lambda x: x[1])
+			oldest = max([(r.name,  datetime.datetime.utcnow()-r.created_at) for r in self.repos], key=lambda x: x[1])
+			newest = min([(r.name, datetime.datetime.utcnow()-r.created_at) for r in self.repos], key=lambda x: x[1])
 			return (oldest[0], oldest[1]), (newest[0], newest[1])
 		else:
 			return None, None
@@ -662,7 +674,7 @@ class GHProfileStats(object):
 
 	@staticmethod
 	def _debug_remaining_requests():
-		return gh.rate_limiting
+		return gh.rate_limit()
 
 def sample_gh_users(pages=1):
 	import requests
@@ -701,22 +713,23 @@ def testing(test_users):
 
 def run():
 	import sys
-	rl_start = gh.rate_limiting[0]
+	rl_start = gh.rate_limit()["resources"]["core"]["remaining"]
 	r_start_t = time.time()
 	roland = GHProfile.from_github(sys.argv[1])
 	r_end_t = time.time()
-	rl_end = gh.rate_limiting[0]
+	rl_end = gh.rate_limit()["resources"]["core"]["remaining"]
 	s_start_t = time.time()
 	stats = GHProfileStats.from_ghprofile(roland)
 	s_end_t = time.time()
 
 	print("\n\n".join(stats.get_all_blocks()))
 
+	print("\n\n")
 	section_header_block("DEBUG")
 	print("    requests took:        %.2fs" % (r_end_t-r_start_t))
-	print("    stats gen took:        %.2fs" % (s_end_t-s_start_t))
+	print("    stats gen took:       %.6fs" % (s_end_t-s_start_t))
 	print("    num requests made:    %d" % (rl_start-rl_end))
-	print("    tpr:                  %.3f" % ((r_end_t-r_start_t)/(rl_start-rl_end)))
+	print("    rps:                  %.3f" % ((rl_start-rl_end)/(r_end_t-r_start_t)))
 
 if __name__ == "__main__":
 	run()

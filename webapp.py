@@ -41,7 +41,7 @@ def get_stats(username):
 @app.route("/")
 def index():
 	# search box and SUPER short intro/about
-	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests(), cooldown=app.cache.get("ghpn-cooldown"))
+	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests()["resources"]["core"], cooldown=app.cache.get("ghpn-cooldown"))
 
 @app.route("/<string:username>")
 def get_user(username):
