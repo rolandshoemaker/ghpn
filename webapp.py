@@ -43,10 +43,12 @@ def index():
 	# search box and SUPER short intro/about
 	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests()["resources"]["core"], cooldown=app.cache.get("ghpn-cooldown"))
 
+@app.route("/favicon.ico")
+def serv_favicon():
+	pass
+
 @app.route("/<string:username>")
 def get_user(username):
-	if username == "favicon.ico":
-		return None, 200
 	# this should actually render a template with the blocks from the profile...
 	if not app.cache.get("ghpn-cooldown"):
 		resp, status_code = get_stats(username)

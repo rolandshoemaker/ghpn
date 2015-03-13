@@ -1,6 +1,7 @@
 # import github
 # from github.GithubException import GithubException
 from github3 import login
+from github3.models import GitHubError
 
 import socket
 
@@ -12,7 +13,7 @@ import humanize
 
 # gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"], per_page=100, timeout=2)
 gh = login(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
-VERSION = "0.0.5"
+VERSION = "0.0.7"
 
 GLOBAL_PARAMS = {"per_page": 100}
 ACCEPTED_WAIT = 0.25
@@ -209,9 +210,14 @@ class GHProfile(object):
 			latest_commit_iter = r.iter_commits()
 			latest_commit_iter.params = {"per_page": 1}
 			last_commit = ""
-			for lc in latest_commit_iter:
-				last_commit = lc.sha[:8]
-				break
+			try:
+				for lc in latest_commit_iter:
+					last_commit = lc.sha[:8]
+					break
+			except GitHubError:
+				if latest_commit_iter.last_status == 403:
+					continue
+				last_commit = ""
 
 			lang_iter = r.iter_languages()
 			lang_iter.params = GLOBAL_PARAMS
