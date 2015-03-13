@@ -1,17 +1,12 @@
 import zlib, datetime, time
 from redis import StrictRedis
 
-from ghpn import GHProfileStats
+from libghpn import GHProfileStats
+from common import compress, decompress
 
 from github3 import GitHubError
 
 STATS_CACHE_LENGTH = 5400
-
-def compress(stuff):
-	return zlib.compress(bytes(stuff.encode("utf-8")))
-
-def decompress(stuff):
-	return zlib.decompress(stuff).decode("utf-8")
 
 cache = StrictRedis(host="localhost", db=0)
 
@@ -41,4 +36,5 @@ def run():
 		else:
 			time.sleep(120)
 
-run()
+if __name__ == "__main__":
+	run()

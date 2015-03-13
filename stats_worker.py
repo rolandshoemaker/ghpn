@@ -2,16 +2,12 @@ import threading, json, zlib
 from redis import StrictRedis
 from datetime import datetime
 
+from common import compress, decompress
+
 r = StrictRedis(host="localhost", db=0)
 INTERVAL = 3600
 
-def compress(stuff):
-	return zlib.compress(bytes(stuff.encode("utf-8")))
-
-def decompress(stuff):
-	return zlib.decompress(stuff).decode("utf-8")
-
-def set_usage():
+def run():
 	usage = r.get("ghpn-s")
 	now = datetime.now().hour
 	if not usage:
@@ -23,7 +19,7 @@ def set_usage():
 	r.set("ghpn-stats", compress(json.dumps(usage)))
 
 def do_it():
-	set_usage()
+	run()
 	threading.Timer(INTERVAL, do_it).start()
 
 if __name__ == "__main__":

@@ -3,17 +3,12 @@ from redis import StrictRedis
 import zlib, json, humanize
 from datetime import datetime
 
-from ghpn import GHProfileStats, logo_block, section_header_block
+from libghpn import GHProfileStats, logo_block, section_header_block
+from common import compress, decompress
 
 app = Flask(__name__)
 app.cache = StrictRedis(host="localhost", db=0)
 app.debug = True
-
-def compress(stuff):
-	return zlib.compress(bytes(stuff.encode("utf-8")))
-
-def decompress(stuff):
-	return zlib.decompress(stuff).decode("utf-8")
 
 def get_usage_graph():
 	usage = json.loads(decompress(app.cache.get("ghpn-stats")))
