@@ -32,7 +32,7 @@ def get_stats(username):
 			return profile, 200
 	else:
 		# if not in 'ghpn-work' then add it
-		if app.cache.get("ghpn-working:%s" % (username)) or username in app.cache.zrange("ghpn-work", 0, -1):
+		if app.cache.get("ghpn-working:%s" % (username)) or username.encode("utf-8") in app.cache.lrange("ghpn-work", 0, -1):
 			return None, 202
 		else:
 			app.cache.rpush("ghpn-work", username)
