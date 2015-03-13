@@ -1,15 +1,7 @@
-build a report for a user
+# ghpn
 
-add debug mode to GHProfile and GHProfileStats and web app
+github parents night is a simple Github user analysis tool offering both CLI tool and a web service.
 
-	GHProfile
-		- requests took
-		- requests made
+early ghpn page
 
-	GHProfileStats
-		- generating stats took
-
-	Web app
-		- from cache / from github
-		- avg. request time? (or something)
-		- avg. key size in cache?
+![](ghpn.png)

@@ -1,6 +1,6 @@
 from flask import Flask, make_response, jsonify, render_template, send_from_directory
 from redis import StrictRedis
-import zlib, json
+import zlib, json, humanize
 from datetime import datetime
 
 from ghpn import GHProfileStats, logo_block, section_header_block
@@ -41,11 +41,14 @@ def get_stats(username):
 @app.route("/")
 def index():
 	# search box and SUPER short intro/about
-	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests()["resources"]["core"], cooldown=app.cache.get("ghpn-cooldown"))
+	cooldown = app.cache.get("ghpn-cooldown")
+	if cooldown:
+		cooldown = "%s" % (humanize.naturaltime(int((datetime.utcfromtimestamp(int(cooldown.decode("utf-8")))-datetime.utcnow()).total_seconds())).replace(" ago", ""))
+	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests()["resources"]["core"], cooldown=cooldown)
 
 @app.route("/favicon.ico")
 def serv_favicon():
-	pass
+	return ("", 200)
 
 @app.route("/<string:username>")
 def get_user(username):
