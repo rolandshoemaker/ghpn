@@ -1,2 +1,2 @@
-rolandshoemaker.json
-*.report
+__pycache__/
+dump.rdb
