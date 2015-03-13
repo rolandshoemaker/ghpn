@@ -44,7 +44,7 @@
 				text-align: center;
 			}
 			.usage {
-				width: 589px;
+				width: 607px;
 				margin: 35px auto;
 			}
 			.usage code {
@@ -75,7 +75,7 @@
 				}
 				.search {
 					width: 650px;
-					margin: 80px auto 30px auto;
+					margin: 40px auto 30px auto;
 				}
 				input {
 					width: 650px;
@@ -83,8 +83,12 @@
 					font-size: 2em;
 				}
 			}
+			.blocks {
+				text-align: center;
+			}
 			.block {
 				display: inline-block;
+				text-align: left;
 				padding: 20px;
 				vertical-align: top;
 			}
@@ -94,19 +98,19 @@
 	<body id="home">
 		<div class="logo">
 			<pre><code>{{logo}}</code></pre>
+			<div class="about">
+				my insides live on <a href="https://github.com/rolandshoemaker/ghpn"><span class="octicon octicon-octoface"></span></a>. {{rl}}
+			</div>
 		</div>
 		<div class="search">
 			<form id="search">
 				<input type="text" placeholder="username">
 			</form>
 		</div>
-		<div class="about">
-			my insides live on <a href="https://github.com/rolandshoemaker/ghpn"><span class="octicon octicon-octoface"></span></a>. {{rl}}
-		</div>
 		<div class="usage">
 			<pre><code>{{usage}}</code></pre>
 		</div>
-		<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 		<script>
 			var colors = ["#D56B6B", "#7ED56B", "#6BD5C1", "#6BA9D5", "#6B70D5", "#BA6BD5", "#D56B7B"];
 			var rand_color = colors[Math.floor(Math.random()*colors.length)];
@@ -120,22 +124,44 @@
 				e.preventDefault();
 
 				// if any .block's already exist remove them
-				$(".block").remove();
+				$(".blocks").remove();
 
 				// add . . . loading div thingy
 				$(".search").after("<div class=\"loading\"><code class=\"loading\"></code></div>");
+				$("code.loading").css("color", rand_color);
 				var loader = setInterval(loading, 1200);
 
 				// begin polling /<username>, if returns 202, wait and poll again, if 200 or anything else print blocks (p easy...)
-					// remove loading div
-					window.clearInterval(loader);
-					$(".loading").remove();
-
-					// add blocks
-
-					// enable search box again at the end
-					$("input").prop("disabled", false);
+				poll_user($("input").val(), loader);
 			});
+
+			var poll_user = function(username, loader) { // heuheuheuheuh
+				$.ajax({
+					type: "GET",
+					url: "/"+username,
+					success: function(data, status, xhr) {
+						if (xhr.status == 200) {
+							// remove loading div
+							window.clearInterval(loader);
+							$(".loading").remove();
+
+							// add blocks
+							$(".search").after("<div class=\"blocks\"></div>");
+							for (var b in data.blocks) {
+								$(".blocks").append("<div class=\"block\"><code><pre>"+data.blocks[b]+"</code></pre></div>")
+							}
+
+							// enable search box again at the end
+							$("input").prop("disabled", false);
+						} else if (xhr.status == 202) {
+							setTimeout(function() {poll_user(username, loader)}, 5000);
+						}
+					},
+					error: function(xhr, status) {
+
+					}
+				});
+			}; 
 
 			var loading = function() {
 				var loader = $("code.loading");

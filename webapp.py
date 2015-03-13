@@ -1,4 +1,4 @@
-from flask import Flask, Response, jsonify, render_template, send_from_directory
+from flask import Flask, make_response, jsonify, render_template, send_from_directory
 from redis import StrictRedis
 import zlib, json
 from datetime import datetime
@@ -32,8 +32,7 @@ def get_stats(username):
 			return profile, 200
 	else:
 		# if not in 'ghpn-work' then add it
-		currently_waiting = app.cache.zrange("ghpn-work", 0, -1)
-		if username in currently_waiting or app.cache.get("ghpn-working:%s" % (username)):
+		if app.cache.get("ghpn-working:%s" % (username)) or username in app.cache.zrange("ghpn-work", 0, -1):
 			return None, 202
 		else:
 			app.cache.rpush("ghpn-work", username)
@@ -46,19 +45,18 @@ def index():
 
 @app.route("/<string:username>")
 def get_user(username):
-	# this should actually render a template with the blocks from the profile...
 	if username == "favicon.ico":
-		# go awway for now
-		return Response(status=200)
+		return None, 200
+	# this should actually render a template with the blocks from the profile...
 	if not app.cache.get("ghpn-cooldown"):
 		resp, status_code = get_stats(username)
 		if status_code == 200:
 			blocks = resp.get_all_blocks()
 		elif status_code == 202:
-			blocks = None
+			blocks = []
 		else:
 			blocks = ["\n".join([section_header_block("ERROR"), resp.get("error", "")])]
-		return Response(jsonify({"blocks": blocks}), status=status_code)
+		return make_response(jsonify({"blocks": blocks}), status_code)
 
 if __name__ == "__main__":
-	app.run(host="10.0.0.31")
+	app.run(host="10.0.0.31", use_reloader=False)

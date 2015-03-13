@@ -25,9 +25,9 @@ def logo_block(name=None):
 	output.append("#       __                         ")
 	output.append("#      /\ \                        ")
 	output.append("#    __\ \ \___   _____     ___    ")
-	output.append("#  /'_ `\ \  _ `\/\ '__`\ /' _ `\  ")
+	output.append("#  /'_ `\ \  _ `\/\  __`\ /' _ `\  ")
 	output.append("# /\ \_\ \ \ \ \ \ \ \/\ \/\ \/\ \ ")
-	output.append("# \ \____ \ \_\ \_\ \ ,__/\ \_\ \_\\")
+	output.append("# \ \____ \ \_\ \_\ \  __/\ \_\ \_\\")
 	output.append("#  \/____\ \/_/\/_/\ \ \/  \/_/\/_/")
 	output.append("#    /\____/        \ \_\          ")
 	output.append("#    \_/__/          \/_/          ")
@@ -186,7 +186,10 @@ class GHProfile(object):
 		ro_repos = []
 
 		def get_commits(bypass=False):
-			c = r.get_stats_contributors()
+			try:
+				c = r.get_stats_contributors()
+			except TypeError:
+				c = None
 			if not c in [{}, None]:
 				return sum(t.total for t in c if t.author.login == username)
 			else:
@@ -422,7 +425,7 @@ class GHProfileStats(object):
 	@staticmethod
 	def get(username, json_errors=False):
 		stats = GHProfile.from_github(username, json_errors=json_errors)
-		if stats.get("error", None):
+		if json_errors and stats.__dict__.get("error", None):
 			return stats
 		else:
 			return GHProfileStats.from_ghprofile(stats)
@@ -610,7 +613,7 @@ class GHProfileStats(object):
 			# else:
 			#	modi = 2
 			modi = 2
-			e_max = max(event_tuples, key=lambda x: x[1])[1]
+			e_max = max(event_tuples, key=lambda x: x[1])[1] or 10
 			def trans(value, event_max=e_max, graph_max=height):
 				return ((graph_max)*(value)/(event_max))
 
@@ -698,9 +701,22 @@ def testing(test_users):
 
 def run():
 	import sys
+	rl_start = gh.rate_limiting[0]
+	r_start_t = time.time()
 	roland = GHProfile.from_github(sys.argv[1])
+	r_end_t = time.time()
+	rl_end = gh.rate_limiting[0]
+	s_start_t = time.time()
 	stats = GHProfileStats.from_ghprofile(roland)
+	s_end_t = time.time()
+
 	print("\n\n".join(stats.get_all_blocks()))
+
+	section_header_block("DEBUG")
+	print("    requests took:        %.2fs" % (r_end_t-r_start_t))
+	print("    stats gen took:        %.2fs" % (s_end_t-s_start_t))
+	print("    num requests made:    %d" % (rl_start-rl_end))
+	print("    tpr:                  %.3f" % ((r_end_t-r_start_t)/(rl_start-rl_end)))
 
 if __name__ == "__main__":
 	run()
