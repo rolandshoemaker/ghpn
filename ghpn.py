@@ -179,7 +179,7 @@ class GHProfile(object):
 		self.email = email
 
 	@staticmethod
-	def from_github(username):
+	def from_github(username, json_errors=False):
 		# this is where ALL the requests come from (at least they should)
 		ro = gh.get_user(username)
 		ro_repo_uris = ro.get_repos()
@@ -420,8 +420,12 @@ class GHProfileStats(object):
 		self.email = email
 
 	@staticmethod
-	def get(username):
-		return GHProfileStats.from_ghprofile(GHProfile.from_github(username))
+	def get(username, json_errors=False):
+		stats = GHProfile.from_github(username, json_errors=json_errors)
+		if stats.get("error", None):
+			return stats
+		else:
+			return GHProfileStats.from_ghprofile(stats)
 
 	@staticmethod
 	def from_ghprofile(profile, repo_limit=10):
@@ -699,5 +703,5 @@ def run():
 	print("\n\n".join(stats.get_all_blocks()))
 
 if __name__ == "__main__":
-	# run()
-	testing(sample_gh_users())
+	run()
+	# testing(sample_gh_users())

@@ -3,9 +3,7 @@ from redis import StrictRedis
 import zlib, json
 from datetime import datetime
 
-from ghpn import GHProfileStats, logo_block
-
-STATS_CACHE_LENGTH = 43200
+from ghpn import GHProfileStats, logo_block, section_header_block
 
 app = Flask(__name__)
 app.cache = StrictRedis(host="localhost", db=0)
@@ -18,22 +16,33 @@ def decompress(stuff):
 	return zlib.decompress(stuff).decode("utf-8")
 
 def get_usage_graph():
-	usage = json.loads(decompress(app.cache.get("ghpn-s")))
+	usage = json.loads(decompress(app.cache.get("ghpn-stats")))
 	return GHProfileStats.construct_event_graph_block("User cache size over 24hr", usage, height=20)
 
 def get_stats(username):
 	r_profile = app.cache.get("ghpn:%s" % (username))
 	if r_profile:
 		# decompress
-		profile = GHProfileStats.from_json(decompress(r_profile))
-		return profile, 200
+		decompressed = decompress(r_profile)
+		if json.loads(decompressed).get("error", None):
+			decompressed_j = json.loads(decompressed)
+			return decompressed_j, decompressed_j["status_code"]
+		else:
+			profile = GHProfileStats.from_json(decompressed)
+			return profile, 200
 	else:
-		pass		
+		# if not in 'ghpn-work' then add it
+		currently_waiting = app.cache.zrange("ghpn-work", 0, -1)
+		if username in currently_waiting or app.cache.get("ghpn-working:%s" % (username)):
+			return None, 202
+		else:
+			app.cache.rpush("ghpn-work", username)
+			return None, 202
 
 @app.route("/")
 def index():
 	# search box and SUPER short intro/about
-	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests())
+	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests(), cooldown=app.cache.get("ghpn-cooldown"))
 
 @app.route("/<string:username>")
 def get_user(username):
@@ -41,9 +50,15 @@ def get_user(username):
 	if username == "favicon.ico":
 		# go awway for now
 		return Response(status=200)
-	stats, status_code = get_stats(username)
-	blocks = stats.get_all_blocks()
-	return render_template("user.html", blocks=blocks, username=stats.username)
+	if not app.cache.get("ghpn-cooldown"):
+		resp, status_code = get_stats(username)
+		if status_code == 200:
+			blocks = resp.get_all_blocks()
+		elif status_code == 202:
+			blocks = None
+		else:
+			blocks = ["\n".join([section_header_block("ERROR"), resp.get("error", "")])]
+		return Response(jsonify({"blocks": blocks}), status=status_code)
 
 if __name__ == "__main__":
 	app.run(host="10.0.0.31")
