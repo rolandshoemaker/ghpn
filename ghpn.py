@@ -13,7 +13,7 @@ import humanize
 
 # gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"], per_page=100, timeout=2)
 gh = login(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
-VERSION = "0.0.7"
+VERSION = "0.0.8"
 
 GLOBAL_PARAMS = {"per_page": 100}
 ACCEPTED_WAIT = 0.25
@@ -188,6 +188,12 @@ class GHProfile(object):
 	def from_github(username, json_errors=False):
 		# this is where ALL the requests come from (at least they should)
 		ro = gh.user(username)
+		if not ro:
+			if json_errors:
+				return {"error": "cannot find %s" % username, "error_status_code": 404}
+			else:
+				# raise something?
+				pass
 		repos_iter = gh.iter_user_repos(username)
 		repos_iter.params = GLOBAL_PARAMS
 
@@ -195,14 +201,16 @@ class GHProfile(object):
 			total = 0
 			contrib_iter = r.iter_contributor_statistics()
 			contrib_iter.params = GLOBAL_PARAMS
-			for contributor in contrib_iter:
-				while True:
-					if not contrib_iter.last_status == 202:
-						if contributor.author.login == username:
-							total += contributor.total
+			while True:
+				for contributor in contrib_iter:
+					if contrib_iter.last_status == 202:
+						time.sleep(ACCEPTED_WAIT)
 						break
 					else:
-						time.sleep(ACCEPTED_WAIT)
+						if contributor.author.login == username:
+							total += contributor.total
+				if not contrib_iter.last_status == 202:
+					break
 			return total
 
 		ro_repos = []

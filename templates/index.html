@@ -9,6 +9,10 @@
 				color: grey;
 				font-family: "Lucida Console", Monaco, monospace;
 			}
+			a {
+				text-decoration: none;
+				color: rgb(176, 63, 184);
+			}
 			.logo {
 				width: 473px;
 				margin: 0 auto;
@@ -42,13 +46,6 @@
 				margin: 15px auto;
 				font-size: 1em;
 				text-align: center;
-			}
-			.cooldown {
-				width: 800px;
-				margin: 15px auto;
-				font-size: 2.4em;
-				text-align: center;
-				color: rgb(189, 31, 31);
 			}
 			.usage {
 				width: 607px;
@@ -99,6 +96,15 @@
 				padding: 20px;
 				vertical-align: top;
 			}
+			.error {
+				color: rgb(213, 36, 36);
+				font-size: 1.5em;
+			}
+			.footer {
+				text-align: center;
+				font-size: 1em;
+				padding-bottom: 15px;
+			}
 		</style>
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/octicons/2.1.2/octicons.css">
 	</head>
@@ -106,7 +112,8 @@
 		<div class="logo">
 			<pre><code>{{logo}}</code></pre>
 			<div class="about">
-				my insides live on <a href="https://github.com/rolandshoemaker/ghpn"><span class="octicon octicon-octoface"></span></a>. {{rl}}
+				my insides live on <a href="https://github.com/rolandshoemaker/ghpn"><span class="octicon octicon-octoface"></span></a>.
+				<br>{{rl}}
 			</div>
 		</div>
 		<div class="search">
@@ -117,12 +124,11 @@
 		<div class="usage">
 			<pre><code>{{usage}}</code></pre>
 		</div>
+		<div class="footer">
+			ghpn is licensed under the <a href="http://opensource.org/licenses/MIT">MIT license</a>, enjoy. you probably shouldn't use this to like... hire someone, unless it's me.
+		</div>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 		<script>
-			{% if cooldown %}
-				$("input").attr("disabled", "disabled");
-				$(".logo").after("<div class=\"cooldown\">ghpn has hit its rate limit, this will reset in {{cooldown}}</div>")
-			{% endif %}
 			var colors = ["#D56B6B", "#7ED56B", "#6BD5C1", "#6BA9D5", "#6B70D5", "#BA6BD5", "#D56B7B"];
 			var rand_color = colors[Math.floor(Math.random()*colors.length)];
 			// color the logo block
@@ -159,7 +165,7 @@
 							// add blocks
 							$(".search").after("<div class=\"blocks\"></div>");
 							for (var b in data.blocks) {
-								$(".blocks").append("<div class=\"block\"><code><pre>"+data.blocks[b]+"</code></pre></div>")
+								$(".blocks").append("<div class=\"block\"><pre><code>"+data.blocks[b]+"</code></pre></div>")
 							}
 
 							// enable search box again at the end
@@ -169,7 +175,19 @@
 						}
 					},
 					error: function(xhr, status) {
+						// remove loading div
+						window.clearInterval(loader);
+						$(".loading").remove();
 
+						// add error blocks
+						$(".search").after("<div class=\"blocks\"></div>");
+						var error_json = $.parseJSON(xhr.responseText);
+						for (var b in error_json.blocks) {
+							$(".blocks").append("<div class=\"error\">"+error_json.blocks[b]+"</div>");
+						}
+
+						// enable search box again at the end
+						$("input").prop("disabled", false);
 					}
 				});
 			}; 

@@ -41,10 +41,7 @@ def get_stats(username):
 @app.route("/")
 def index():
 	# search box and SUPER short intro/about
-	cooldown = app.cache.get("ghpn-cooldown")
-	if cooldown:
-		cooldown = "%s" % (humanize.naturaltime(int((datetime.utcfromtimestamp(int(cooldown.decode("utf-8")))-datetime.utcnow()).total_seconds())).replace(" ago", ""))
-	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests()["resources"]["core"], cooldown=cooldown)
+	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests()["resources"]["core"])
 
 @app.route("/favicon.ico")
 def serv_favicon():
@@ -55,13 +52,24 @@ def get_user(username):
 	# this should actually render a template with the blocks from the profile...
 	if not app.cache.get("ghpn-cooldown"):
 		resp, status_code = get_stats(username)
-		if status_code == 200:
+
+		headers = {}
+		if resp.get("error", None):
+			blocks = [resp.get("error", "")]
+			status_code = resp.get("error_status_code", 400)
+		elif status_code == 200:
 			blocks = resp.get_all_blocks()
+			cache_expires = app.cache.ttl("gphn:%s" % (username))
+			headers["cache-control"] = "public, max-age=%d" % (cache_expire)
 		elif status_code == 202:
 			blocks = []
-		else:
-			blocks = ["\n".join([section_header_block("ERROR"), resp.get("error", "")])]
-		return make_response(jsonify({"blocks": blocks}), status_code)
+
+		return (jsonify({"blocks": blocks}), status_code, headers)
+	else:
+		cooldown = app.cache.get("ghpn-cooldown")
+		if cooldown:
+			cooldown = "%s" % (humanize.naturaltime(datetime.utcfromtimestamp(int(cooldown.decode("utf-8")))-datetime.utcnow()))
+		return (jsonify({"blocks": ["\n".join(["ghpn has hit its GitHub rate limit and cannot proccess any new users, this will reset in %s, already cached users can still be accessed." % (cooldown)])]}), 403)
 
 if __name__ == "__main__":
 	app.run(host="10.0.0.31", use_reloader=False)
