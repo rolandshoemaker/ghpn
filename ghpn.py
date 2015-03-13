@@ -206,10 +206,12 @@ class GHProfile(object):
 
 		ro_repos = []
 		for r in repos_iter:
-			#try:
-			#	last_commit = r.get_commits()[0].sha # prob better way!
-			#except GithubException:
+			latest_commit_iter = r.iter_commits()
+			latest_commit_iter.params = {"per_page": 1}
 			last_commit = ""
+			for lc in latest_commit_iter:
+				last_commit = lc.sha[:8]
+				break
 
 			lang_iter = r.iter_languages()
 			lang_iter.params = GLOBAL_PARAMS
@@ -699,7 +701,7 @@ def testing(test_users):
 		debugs.append(DEBUG_INFO)
 		stats = GHProfileStats.from_ghprofile(roland)
 		print("\n\n".join(stats.get_all_blocks()))
-		section_header_block("DEBUG")
+		print(section_header_block("DEBUG"))
 		print("    requests took:        %.2fs" % (DEBUG_INFO["requests_took"]))
 		print("    num requests made:    %d" % (DEBUG_INFO["num_requests_made"]))
 		print("    tpr:                  %.3f" % (DEBUG_INFO["requests_took"]/DEBUG_INFO["num_requests_made"]))
@@ -707,7 +709,7 @@ def testing(test_users):
 	def avg(l):
 		return sum(l) / len(l)
 
-	section_header_block("RUN STATS")
+	print(section_header_block("RUN STATS"))
 	print("  Average collection period:   %.2fs" % (avg([d["requests_took"] for d in debugs])))
 	print("  Average requests:            %.2d" % (avg([d["num_requests_made"] for d in debugs])))
 
@@ -725,7 +727,7 @@ def run():
 	print("\n\n".join(stats.get_all_blocks()))
 
 	print("\n")
-	section_header_block("DEBUG")
+	print(section_header_block("DEBUG"))
 	print("    requests took:        %.2fs" % (r_end_t-r_start_t))
 	print("    stats gen took:       %.6fs" % (s_end_t-s_start_t))
 	print("    num requests made:    %d" % (rl_start-rl_end))
