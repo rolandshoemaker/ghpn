@@ -21,7 +21,7 @@ def get_stats(username):
 		decompressed = decompress(r_profile)
 		if json.loads(decompressed).get("error", None):
 			decompressed_j = json.loads(decompressed)
-			return decompressed_j, decompressed_j["status_code"]
+			return decompressed_j, decompressed_j.get("status_code", None) or decompressed_j.get("error_status_code", None)
 		else:
 			profile = GHProfileStats.from_json(decompressed)
 			return profile, 200
@@ -49,13 +49,14 @@ def get_user(username):
 		resp, status_code = get_stats(username)
 
 		headers = {}
-		if resp.get("error", None):
-			blocks = [resp.get("error", "")]
-			status_code = resp.get("error_status_code", 400)
+		print("heelo?")
+		if resp and not isinstance(resp, GHProfileStats):
+			blocks = [resp["error"]]
+			status_code = resp["error_status_code"]
 		elif status_code == 200:
 			blocks = resp.get_all_blocks()
-			cache_expires = app.cache.ttl("gphn:%s" % (username))
-			headers["cache-control"] = "public, max-age=%d" % (cache_expire)
+			cache_expires = app.cache.ttl("ghpn:%s" % (username))
+			headers["cache-control"] = "public, max-age=%d" % (cache_expires)
 		elif status_code == 202:
 			blocks = []
 

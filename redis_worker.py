@@ -1,4 +1,4 @@
-import zlib, datetime, time
+import zlib, datetime, time, json
 from redis import StrictRedis
 
 from libghpn import GHProfileStats
@@ -22,16 +22,18 @@ def run():
 				if GHProfileStats._debug_remaining_requests()["resources"]["core"]["remaining"] == 0:
 					expiration = int((datetime.datetime.utcfromtimestamp(GHProfileStats._debug_remaining_requests()["resources"]["core"]["reset"])-datetime.datetime.utcnow()).total_seconds())
 					cache.setex("ghpn-cooldown", expiration, GHProfileStats._debug_remaining_requests()["resources"]["core"]["reset"])
+					cache.rpush("ghpn-work", username)
 				cache.delete("ghpn-working:%s" % (username))
 				continue
 			# need to set expire too!
-			if profile.__dict__.get("error", None):
+			print("meep")
+			if not isinstance(profile, GHProfileStats):
 				expire = 60
-				compressed_profile = compress(profile)
+				compressed_profile = compress(json.dumps(profile))
 			else:
 				expire = STATS_CACHE_LENGTH
 				compressed_profile = compress(profile.to_json())
-			cache.setex("ghpn:%s" % (username), STATS_CACHE_LENGTH, compressed_profile)
+			cache.setex("ghpn:%s" % (username), expire, compressed_profile)
 			cache.delete("ghpn-working:%s" % (username))
 		else:
 			time.sleep(120)

@@ -202,14 +202,17 @@ class GHProfile(object):
 			contrib_iter = r.iter_contributor_statistics()
 			contrib_iter.params = GLOBAL_PARAMS
 			while True:
-				for contributor in contrib_iter:
-					if contrib_iter.last_status == 202:
-						time.sleep(ACCEPTED_WAIT)
+				try:
+					for contributor in contrib_iter:
+						if contrib_iter.last_status == 202:
+							time.sleep(ACCEPTED_WAIT)
+							break
+						else:
+							if contributor.author.login == username:
+								total += contributor.total
+					if not contrib_iter.last_status == 202:
 						break
-					else:
-						if contributor.author.login == username:
-							total += contributor.total
-				if not contrib_iter.last_status == 202:
+				except AttributeError:
 					break
 			return total
 
@@ -453,7 +456,10 @@ class GHProfileStats(object):
 	@staticmethod
 	def get(username, json_errors=False):
 		stats = GHProfile.from_github(username, json_errors=json_errors)
-		if json_errors and stats.__dict__.get("error", None):
+		if json_errors and not isinstance(stats, GHProfile):
+			print(stats["error"])
+			print(username)
+			print(stats)
 			return stats
 		else:
 			return GHProfileStats.from_ghprofile(stats)

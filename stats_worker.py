@@ -7,8 +7,8 @@ from common import compress, decompress
 r = StrictRedis(host="localhost", db=0)
 INTERVAL = 3600
 
-def run():
-	usage = r.get("ghpn-s")
+def collect_usage():
+	usage = r.get("ghpn-stats")
 	now = datetime.now().hour
 	if not usage:
 		usage = [[" ", 0] for hour in range(0,25)]
@@ -18,9 +18,9 @@ def run():
 	usage.append([" ", len(r.keys("ghpn:*"))])
 	r.set("ghpn-stats", compress(json.dumps(usage)))
 
-def do_it():
-	run()
-	threading.Timer(INTERVAL, do_it).start()
+def run(interval=INTERVAL):
+	collect_usage()
+	threading.Timer(interval, run).start()
 
 if __name__ == "__main__":
-	do_it()
+	run()
