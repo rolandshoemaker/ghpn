@@ -12,7 +12,7 @@ app.debug = True
 
 def get_usage_graph():
 	usage = json.loads(decompress(app.cache.get("ghpn-stats")))
-	return GHProfileStats.construct_event_graph_block("User cache size over 24hr", usage, height=20)
+	return GHProfileStats.construct_event_graph_block("Users cached over 24hr", usage, height=20)
 
 def get_stats(username):
 	r_profile = app.cache.get("ghpn:%s" % (username))
@@ -36,6 +36,7 @@ def get_stats(username):
 @app.route("/")
 def index():
 	# search box and SUPER short intro/about
+	# one page to rule them all!
 	return render_template("index.html", logo=logo_block(), usage=get_usage_graph(), rl=GHProfileStats._debug_remaining_requests()["resources"]["core"])
 
 @app.route("/favicon.ico")
@@ -49,7 +50,6 @@ def get_user(username):
 		resp, status_code = get_stats(username)
 
 		headers = {}
-		print("heelo?")
 		if resp and not isinstance(resp, GHProfileStats):
 			blocks = [resp["error"]]
 			status_code = resp["error_status_code"]
