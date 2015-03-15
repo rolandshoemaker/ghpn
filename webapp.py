@@ -64,7 +64,7 @@ def get_user(username):
 	else:
 		cooldown = app.cache.get("ghpn-cooldown")
 		if cooldown:
-			cooldown = "%s" % (humanize.naturaltime(datetime.utcfromtimestamp(int(cooldown.decode("utf-8")))-datetime.utcnow()))
+			cooldown = "%s" % (humanize.naturaltime(datetime.utcnow()-datetime.utcfromtimestamp(int(cooldown.decode("utf-8")))))
 		return (jsonify({"blocks": ["\n".join(["ghpn has hit its GitHub rate limit and cannot proccess any new users, this will reset in %s, already cached users can still be accessed." % (cooldown)])]}), 403)
 
 if __name__ == "__main__":

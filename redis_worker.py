@@ -1,4 +1,4 @@
-import zlib, datetime, time, json
+import zlib, datetime, time, json, humanize
 from redis import StrictRedis
 
 from libghpn import GHProfileStats
@@ -17,17 +17,18 @@ def run():
 		if not cache.get("ghpn-cooldown"):
 			username = cache.blpop("ghpn-work")[1].decode("utf-8")
 			cache.set("ghpn-working:"+username, 1)
-			DEBUG = {"username": username, "start_rl": GHProfileStats._debug_remaining_requests()["resources"]["core"]["remaining"], "start_t": time.now()}
+			DEBUG = {"username": username, "start_rl": GHProfileStats._debug_remaining_requests()["resources"]["core"]["remaining"], "start_t": time.time()}
 			try:
 				profile = GHProfileStats.get(username, json_errors=True)
-				DEBUG["request_t"] = DEBUG["start_t"]-time.now()
+				DEBUG["request_t"] = time.time()-DEBUG["start_t"]
 				DEBUG["num_requests"] = DEBUG["start_rl"]-GHProfileStats._debug_remaining_requests()["resources"]["core"]["remaining"]
 			except GitHubError:
 				if GHProfileStats._debug_remaining_requests()["resources"]["core"]["remaining"] == 0:
 					expiration = int((datetime.datetime.utcfromtimestamp(GHProfileStats._debug_remaining_requests()["resources"]["core"]["reset"])-datetime.datetime.utcnow()).total_seconds())
 					cache.setex("ghpn-cooldown", expiration, GHProfileStats._debug_remaining_requests()["resources"]["core"]["reset"])
-					logger.warn("github rate limit hit, set cooldown! reset in %d" % (expiration))
-					cache.rpush("ghpn-work", username)
+					logger.warn("github rate limit hit, set cooldown! reset in %s" % (humanize.naturaldelta(expiration)))
+					# cache.rpush("ghpn-work", username)
+					# clear ghpn-work list so we dont randomly process old users in the queue when rate limit resets.
 				else:
 					logger.error("error man hmm")
 				cache.delete("ghpn-working:%s" % (username))

@@ -8,7 +8,7 @@ def compress(stuff):
 def decompress(stuff):
 	return zlib.decompress(stuff).decode("utf-8")
 
-def get_logger(logger_name=None, log_level="info"):
+def get_logger(logger_name=None, log_level="info", log_file_name=LOG_FILE_NAME):
 	if multiprocessing.current_process().name == "MainProcess":
 		if not logger_name:
 			# something bad
@@ -27,9 +27,12 @@ def get_logger(logger_name=None, log_level="info"):
 	elif log_level == "critical":
 		logger.setLevel(logging.CRITICAL)
 
-	fh = logging.FileHandler(LOG_FILE_NAME)
+	fh = logging.FileHandler(log_file_name)
+	sh = logging.StreamHandler()
 	formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 	fh.setFormatter(formatter)
+	sh.setFormatter(formatter)
 	logger.addHandler(fh)
+	logger.addHandler(sh)
 
 	return logger
