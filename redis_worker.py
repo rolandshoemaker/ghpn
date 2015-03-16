@@ -17,11 +17,11 @@ def run():
 		if not cache.get("ghpn-cooldown"):
 			username = cache.blpop("ghpn-work")[1].decode("utf-8")
 			cache.set("ghpn-working:"+username, 1)
-			DEBUG = {"username": username, "start_rl": GHProfileStats._debug_request_counter, "start_t": time.time()}
+			DEBUG = {"username": username, "start_rl": GHProfileStats._debug_request_counter(), "start_t": time.time()}
 			try:
 				profile = GHProfileStats.get(username, json_errors=True)
 				DEBUG["request_t"] = time.time()-DEBUG["start_t"]
-				DEBUG["num_requests"] = GHProfileStats._debug_request_counter-DEBUG["start_rl"]
+				DEBUG["num_requests"] = GHProfileStats._debug_request_counter()-DEBUG["start_rl"]
 			except GitHubError:
 				if GHProfileStats._debug_remaining_requests()["resources"]["core"]["remaining"] == 0:
 					expiration = int((datetime.datetime.utcfromtimestamp(GHProfileStats._debug_remaining_requests()["resources"]["core"]["reset"])-datetime.datetime.utcnow()).total_seconds())

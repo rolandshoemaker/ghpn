@@ -1,7 +1,7 @@
 # import github
 # from github.GithubException import GithubException
 from github3 import login
-from github3.models import GitHubError
+from github3.exceptions import GitHubError
 
 import socket
 
@@ -13,7 +13,7 @@ import humanize
 
 # gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"], per_page=100, timeout=2)
 gh = login(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
-VERSION = "0.0.8"
+VERSION = "0.0.9"
 
 GLOBAL_PARAMS = {"per_page": 100}
 ACCEPTED_WAIT = 0.25
@@ -194,12 +194,12 @@ class GHProfile(object):
 			else:
 				# raise something?
 				pass
-		repos_iter = gh.iter_user_repos(username)
+		repos_iter = gh.repositories_by(username)
 		repos_iter.params = GLOBAL_PARAMS
 
 		def get_user_commits():
 			total = 0
-			contrib_iter = r.iter_contributor_statistics()
+			contrib_iter = r.contributor_statistics()
 			contrib_iter.params = GLOBAL_PARAMS
 			while True:
 				try:
@@ -218,7 +218,7 @@ class GHProfile(object):
 
 		ro_repos = []
 		for r in repos_iter:
-			latest_commit_iter = r.iter_commits()
+			latest_commit_iter = r.commits()
 			latest_commit_iter.params = {"per_page": 1}
 			last_commit = ""
 			try:
@@ -230,14 +230,14 @@ class GHProfile(object):
 					continue
 				last_commit = ""
 
-			lang_iter = r.iter_languages()
+			lang_iter = r.languages()
 			lang_iter.params = GLOBAL_PARAMS
 			repo = GHRepo(
 				name=r.name,
 			    is_forkd=r.fork,
 				total_commits=get_user_commits(), # guhhhh
 				last_month_commits=None,
-				stars=r.stargazers,
+				stars=r.stargazers_count,
 				watchers=r.watchers, # WRONG
 				forks=r.forks_count,
 				language=r.language,
@@ -251,7 +251,7 @@ class GHProfile(object):
 
 			ro_repos.append(repo)
 
-		event_iter = ro.iter_events()
+		event_iter = ro.events()
 		event_iter.params = GLOBAL_PARAMS
 		pushes, creates, forks, issues = reduce_events([e for e in event_iter])
 
@@ -261,8 +261,8 @@ class GHProfile(object):
 			name=ro.name,
 			user_since=ro.created_at.replace(tzinfo=None),
 			last_active=user_last_active,
-			followers=ro.followers,
-			following=ro.following,
+			followers=ro.followers_count,
+			following=ro.following_count,
 			repos=ro_repos,
 			location=ro.location,
 			push_activity=pushes,
@@ -739,11 +739,11 @@ def testing(test_users):
 
 def run():
 	import sys
-	rl_start = gh.rate_limit()["resources"]["core"]["remaining"]
+	rl_start = gh.__dict__["session"].__dict__["request_counter"]
 	r_start_t = time.time()
 	roland = GHProfile.from_github(sys.argv[1])
 	r_end_t = time.time()
-	rl_end = gh.rate_limit()["resources"]["core"]["remaining"]
+	rl_end = gh.__dict__["session"].__dict__["request_counter"]
 	s_start_t = time.time()
 	stats = GHProfileStats.from_ghprofile(roland)
 	s_end_t = time.time()
@@ -754,8 +754,8 @@ def run():
 	print(section_header_block("DEBUG"))
 	print("    requests took:        %.2fs" % (r_end_t-r_start_t))
 	print("    stats gen took:       %.6fs" % (s_end_t-s_start_t))
-	print("    num requests made:    %d" % (rl_start-rl_end))
-	print("    rps:                  %.3f" % ((rl_start-rl_end)/(r_end_t-r_start_t)))
+	print("    num requests made:    %d" % (rl_end-rl_start))
+	print("    rps:                  %.3f" % ((rl_end-rl_start)/(r_end_t-r_start_t)))
 
 if __name__ == "__main__":
 	run()
