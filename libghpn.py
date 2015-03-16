@@ -698,6 +698,10 @@ class GHProfileStats(object):
 	def _debug_remaining_requests():
 		return gh.rate_limit()
 
+	@staticmethod
+	def _debug_request_counter():
+		return gh.__dict__["session"].__dict__["request_counter"]
+
 def sample_gh_users(pages=1):
 	import requests
 

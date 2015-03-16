@@ -22,7 +22,7 @@ def collect_usage():
 
 def run(interval):
 	collect_usage()
-	threading.Timer(interval, run).start()
+	threading.Timer(interval, run, args=[interval]).start()
 
 if __name__ == "__main__":
 	run()

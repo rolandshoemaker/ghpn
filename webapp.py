@@ -26,12 +26,17 @@ def get_stats(username):
 			profile = GHProfileStats.from_json(decompressed)
 			return profile, 200
 	else:
-		# if not in 'ghpn-work' then add it
-		if app.cache.get("ghpn-working:%s" % (username)) or username.encode("utf-8") in app.cache.lrange("ghpn-work", 0, -1):
-			return None, 202
+		if not app.cache.get("ghpn-cooldown"):
+			# if not in 'ghpn-work' then add it
+			if app.cache.get("ghpn-working:%s" % (username)) or username.encode("utf-8") in app.cache.lrange("ghpn-work", 0, -1):
+				return None, 202
+			else:
+				app.cache.rpush("ghpn-work", username)
+				return None, 202
 		else:
-			app.cache.rpush("ghpn-work", username)
-			return None, 202
+			cooldown = app.cache.get("ghpn-cooldown")
+			cooldown = "%s" % (humanize.naturaltime(datetime.utcnow()-datetime.utcfromtimestamp(int(cooldown.decode("utf-8")))))
+			return {"error": "ghpn has hit its GitHub rate limit and cannot proccess any new users, this will reset in %s, already cached users can still be accessed." % (cooldown), "error_status_code": 500}, None
 
 @app.route("/")
 def index():
@@ -45,27 +50,20 @@ def serv_favicon():
 
 @app.route("/<string:username>")
 def get_user(username):
-	# this should actually render a template with the blocks from the profile...
-	if not app.cache.get("ghpn-cooldown"):
-		resp, status_code = get_stats(username)
+	resp, status_code = get_stats(username)
 
-		headers = {}
-		if resp and not isinstance(resp, GHProfileStats):
-			blocks = [resp["error"]]
-			status_code = resp["error_status_code"]
-		elif status_code == 200:
-			blocks = resp.get_all_blocks()
-			cache_expires = app.cache.ttl("ghpn:%s" % (username))
-			headers["cache-control"] = "public, max-age=%d" % (cache_expires)
-		elif status_code == 202:
-			blocks = []
+	headers = {}
+	if resp and not isinstance(resp, GHProfileStats):
+		blocks = [resp["error"]]
+		status_code = resp["error_status_code"]
+	elif status_code == 200:
+		blocks = resp.get_all_blocks()
+		cache_expires = app.cache.ttl("ghpn:%s" % (username))
+		headers["cache-control"] = "public, max-age=%d" % (cache_expires)
+	elif status_code == 202:
+		blocks = []
 
-		return (jsonify({"blocks": blocks}), status_code, headers)
-	else:
-		cooldown = app.cache.get("ghpn-cooldown")
-		if cooldown:
-			cooldown = "%s" % (humanize.naturaltime(datetime.utcnow()-datetime.utcfromtimestamp(int(cooldown.decode("utf-8")))))
-		return (jsonify({"blocks": ["\n".join(["ghpn has hit its GitHub rate limit and cannot proccess any new users, this will reset in %s, already cached users can still be accessed." % (cooldown)])]}), 403)
+	return (jsonify({"blocks": blocks}), status_code, headers)
 
 if __name__ == "__main__":
 	app.run(host="10.0.0.31", use_reloader=False)
