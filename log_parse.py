@@ -18,7 +18,7 @@ def get_stats(line):
 	return {
 		"timestamp": " ".join(line.split(" ")[:2]), # should be a datetime prob...?
 		"requests": int(unparsed_variables["requests"]),
-		"took": int(unparsed_variables["took"]),
+		"took": float(unparsed_variables["took"]),
 		"rps": float(unparsed_variables["rps"])
 	}
 
@@ -33,7 +33,7 @@ def print_stats(log_lines):
 	print("users processed: %d" % (len(stats["entries"])))
 	print("total requests: %d" % (total_requests))
 	print("    average requests: %d" % (avg_requests))
-	print("    average request time: %.6fs" % (avg_took))
+	print("    average request time: %.4fs" % (avg_took))
 	print("    average rps: %.4f" % (avg_rps))
 
 print_stats(only_success(read_log("ghpn-reigns.log")))

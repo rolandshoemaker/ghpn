@@ -38,11 +38,11 @@ def run():
 			if not isinstance(profile, GHProfileStats):
 				expire = 60
 				compressed_profile = compress(json.dumps(profile))
-				logger.warn("processing error|username=%s|took=%d|requests=%d|rps=%.2f|error=%s" % (username, DEBUG["request_t"], DEBUG["num_requests"], DEBUG["num_requests"]/DEBUG["request_t"], profile["error"]))
+				logger.warn("processing error|username=%s|took=%.4f|requests=%d|rps=%.2f|error=%s" % (username, DEBUG["request_t"], DEBUG["num_requests"], DEBUG["num_requests"]/DEBUG["request_t"], profile["error"]))
 			else:
 				expire = STATS_CACHE_LENGTH
 				compressed_profile = compress(profile.to_json())
-				logger.info("processed user|username=%s|took=%d|requests=%d|rps=%.2f" % (username, DEBUG["request_t"], DEBUG["num_requests"], DEBUG["num_requests"]/DEBUG["request_t"]))
+				logger.info("processed user|username=%s|took=%.4f|requests=%d|rps=%.2f" % (username, DEBUG["request_t"], DEBUG["num_requests"], DEBUG["num_requests"]/DEBUG["request_t"]))
 			cache.setex("ghpn:%s" % (username), expire, compressed_profile)
 			cache.delete("ghpn-working:%s" % (username))
 		else:
