@@ -96,7 +96,7 @@ def index():
 def serve_favicon():
 	return ("", 200)
 
-@app.route("/<string:username>")
+@app.route("/user/<string:username>")
 def get_user(username):
 	if g.user:
 		resp, status_code = get_stats(username)

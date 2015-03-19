@@ -9,8 +9,7 @@ import dateutil.parser
 from tabulate import tabulate
 import humanize
 
-gh = login(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
-VERSION = "0.0.9"
+VERSION = "0.1.0"
 
 GLOBAL_PARAMS = {"per_page": 100}
 ACCEPTED_WAIT = 0.25
@@ -185,7 +184,7 @@ class GHProfile(object):
 	def from_github(username, json_errors=False, github=None):
 		# this is where ALL the requests come from (at least they should)
 		if not github:
-			github = gh
+			github = GitHub()
 		ro = github.user(username)
 		if not ro:
 			if json_errors:
