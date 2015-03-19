@@ -33,13 +33,14 @@
 				font-size: 1em;
 				padding: 5px 5px 5px 45px;
 				outline: none;
+				background: #E7E7E7;
 			}
 			input:disabled {
-				background: #E7E7E7;
+				background: #D8D8D8;
 				color: grey;
 			}
 			input:focus {
-				background: #D8D8D8;
+				background: white;
 			}
 			.about {
 				width: 600px;
@@ -107,6 +108,9 @@
 				font-size: 1em;
 				padding-bottom: 15px;
 			}
+			.login {
+				text-align: center;
+			}
 			a.login {
 				margin: 0 auto;
 				text-align: center;
@@ -125,7 +129,7 @@
 				margin: 0 auto;
 				text-align: center;
 				display: block;
-				width: 180px;
+				width: 80px;
 				background-color: rgb(208, 208, 208);
 				border-radius: 5px;
 				padding: 10px 20px 10px 20px;
@@ -142,7 +146,7 @@
 		<div class="logo">
 			<pre><code>{{logo}}</code></pre>
 			<div class="about">
-				my insides live on <a href="https://github.com/rolandshoemaker/ghpn"><span class="octicon octicon-octoface"></span></a>.
+				my insides live on <a href="https://github.com/rolandshoemaker/ghpn" title="github"><span class="octicon octicon-octoface"></span></a>.
 				<br>{{rl}}
 			</div>
 		</div>
@@ -159,6 +163,7 @@
 			</div>
 		{% else %}
 			<div class="login">
+				<p>in order to analyze users you need to login using GitHub oauth, it's easy!</p>
 				<a href="/login" class="login">
 					<span class="mega-octicon octicon-mark-github" style="vertical-align: middle;"></span>
 					<span style="display: inline-block;vertical-align: middle;width: 10px;"></span>
