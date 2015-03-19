@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-from flask import Flask, make_response, jsonify, render_template, send_from_directory, url_for
+from flask import Flask, make_response, jsonify, render_template, send_from_directory, url_for, g, redirect
 from flask.ext.github import GitHub as GitHub_flask
 
 from libghpn import GHProfileStats, logo_block, section_header_block
@@ -75,7 +75,7 @@ def get_stats(username):
 		else:
 			cooldown = app.cache.get("ghpn-cooldown:%d" % (g.user.id))
 			cooldown = "%s" % (humanize.naturaltime(datetime.utcnow()-datetime.utcfromtimestamp(int(cooldown.decode("utf-8")))))
-			return {"error": "You have hit your GitHub rate limit so ghpn cannot proccess any new users, this will reset in %s, already cached users can still be accessed." % (cooldown), "error_status_code": 500}, None # Wrong error code!
+			return {"error": "You have hit your GitHub rate limit so ghpn cannot proccess any new users, this will reset in %s, already cached users can still be accessed." % (cooldown), "error_status_code": 403}, None # Wrong error code!
 
 
 ###############
@@ -133,13 +133,20 @@ def after_request(response):
 
 @app.route("/login")
 def login():
-	return github_oauth.authorize()
+	if not g.user:
+		return github_oauth.authorize()
+	else:
+		return ("already logged in", 403)
 
 @app.route("/logout")
 def logout():
-	session.pop("user_id", None)
-	db.delete(g.user)
-	db.commit()
+	if g.user:
+		session.pop("user_id", None)
+		db.delete(g.user)
+		db.commit()
+		return redirect(url_for("index"))
+	else:
+		return ("not logged in", 403)
 
 @app.route("/gh-callback")
 @github_oauth.authorized_handler
@@ -150,12 +157,12 @@ def authorized(oauth_token):
 
 	user = User.query.filter_by(github_access_token=oauth_token).first()
 	if not user:
-		user = User(oauth_token)
-        db.add(user)
+        db.add(User(oauth_token))
     else:
     	user.github_access_token = oauth_token
     db.commit()
-    return url_for("index")
+    session["user_id"] = user.id # this should probably be uh... better?
+    return redirect(url_for("index"))
 
 # this may not actually be needed since we aren't using github-flask to make any requests...?
 @github.access_token_getter
