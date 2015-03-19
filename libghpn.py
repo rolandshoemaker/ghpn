@@ -1,5 +1,3 @@
-# import github
-# from github.GithubException import GithubException
 from github3 import login
 from github3.exceptions import GitHubError
 
@@ -11,7 +9,6 @@ import dateutil.parser
 from tabulate import tabulate
 import humanize
 
-# gh = github.Github(os.environ["GHPN_USER"], os.environ["GHPN_PASS"], per_page=100, timeout=2)
 gh = login(os.environ["GHPN_USER"], os.environ["GHPN_PASS"])
 VERSION = "0.0.9"
 
@@ -185,16 +182,18 @@ class GHProfile(object):
 		self.email = email
 
 	@staticmethod
-	def from_github(username, json_errors=False):
+	def from_github(username, json_errors=False, github=None):
 		# this is where ALL the requests come from (at least they should)
-		ro = gh.user(username)
+		if not github:
+			github = gh
+		ro = github.user(username)
 		if not ro:
 			if json_errors:
 				return {"error": "cannot find %s" % username, "error_status_code": 404}
 			else:
 				# raise something?
 				pass
-		repos_iter = gh.repositories_by(username)
+		repos_iter = github.repositories_by(username)
 		repos_iter.params = GLOBAL_PARAMS
 
 		def get_user_commits():
@@ -391,6 +390,7 @@ class GHProfile(object):
 class GHProfileStats(object):
 	def __init__(
 		self,
+		token=None,
 		username=None,
 		name=None,
 		location=None,
@@ -422,40 +422,44 @@ class GHProfileStats(object):
 		num_gists=None,
 		email=None
 	):
-		self.username = username
-		self.name = name
-		self.location = location
-		self.user_since = user_since
-		self.last_active = last_active
-		self.repo_num = repo_num
-		self.forked_repo_num = forked_repo_num
-		self.langs = langs
-		self.footprint = footprint
-		self.footprint_minus_forks = footprint_minus_forks
-		self.stars = stars
-		self.forkers = forkers
-		self.followers = followers
-		self.following = following
-		self.oldest_repo = oldest_repo
-		self.newest_repo = newest_repo 
-		self.avg_repo_age = avg_repo_age
-		self.popular_repos = popular_repos
-		self.active_repos = active_repos
-		self.inactive_repos = inactive_repos
-		self.num_inactive_repos = num_inactive_repos
-		self.total_commits = total_commits
-		self.push_activity = push_activity
-		self.fork_activity = fork_activity
-		self.create_activity = create_activity
-		self.issue_activity = issue_activity
-		self.company = company
-		self.hireable = hireable
-		self.num_gists = num_gists
-		self.email = email
+		if token:
+			self.gh = login(token=token)
+		else:
+			self.gh = None
+			self.username = username
+			self.name = name
+			self.location = location
+			self.user_since = user_since
+			self.last_active = last_active
+			self.repo_num = repo_num
+			self.forked_repo_num = forked_repo_num
+			self.langs = langs
+			self.footprint = footprint
+			self.footprint_minus_forks = footprint_minus_forks
+			self.stars = stars
+			self.forkers = forkers
+			self.followers = followers
+			self.following = following
+			self.oldest_repo = oldest_repo
+			self.newest_repo = newest_repo 
+			self.avg_repo_age = avg_repo_age
+			self.popular_repos = popular_repos
+			self.active_repos = active_repos
+			self.inactive_repos = inactive_repos
+			self.num_inactive_repos = num_inactive_repos
+			self.total_commits = total_commits
+			self.push_activity = push_activity
+			self.fork_activity = fork_activity
+			self.create_activity = create_activity
+			self.issue_activity = issue_activity
+			self.company = company
+			self.hireable = hireable
+			self.num_gists = num_gists
+			self.email = email
 
 	@staticmethod
 	def get(username, json_errors=False):
-		stats = GHProfile.from_github(username, json_errors=json_errors)
+		stats = GHProfile.from_github(username, json_errors=json_errors, github=self.gh)
 		if json_errors and not isinstance(stats, GHProfile):
 			print(stats["error"])
 			print(username)
@@ -694,13 +698,11 @@ class GHProfileStats(object):
 		]
 		return [b for b in blocks if b]
 
-	@staticmethod
-	def _debug_remaining_requests():
-		return gh.rate_limit()
+	def _debug_remaining_requests(self):
+		return self.gh.rate_limit()
 
-	@staticmethod
-	def _debug_request_counter():
-		return gh.__dict__["session"].__dict__["request_counter"]
+	def _debug_request_counter(self):
+		return self.gh.__dict__["session"].__dict__["request_counter"]
 
 def sample_gh_users(pages=1):
 	import requests

@@ -11,7 +11,7 @@
 			}
 			a {
 				text-decoration: none;
-				color: rgb(176, 63, 184);
+				color: rgb(203, 80, 188);
 			}
 			.logo {
 				width: 473px;
@@ -79,7 +79,7 @@
 				}
 				.search {
 					width: 650px;
-					margin: 40px auto 30px auto;
+					margin: 30px auto 30px auto;
 				}
 				input {
 					width: 650px;
@@ -107,6 +107,34 @@
 				font-size: 1em;
 				padding-bottom: 15px;
 			}
+			a.login {
+				margin: 0 auto;
+				text-align: center;
+				display: block;
+				width: 260px;
+				background-color: rgb(208, 208, 208);
+				border-radius: 5px;
+				padding: 10px 20px 10px 20px;
+
+				transition: background-color 0.95s ease;
+			}
+			a.login:hover {
+				background-color: rgb(231, 231, 231);
+			}
+			a.logout {
+				margin: 0 auto;
+				text-align: center;
+				display: block;
+				width: 180px;
+				background-color: rgb(208, 208, 208);
+				border-radius: 5px;
+				padding: 10px 20px 10px 20px;
+
+				transition: background-color 0.95s ease;
+			}
+			a.logout:hover {
+				background-color: rgb(231, 231, 231);
+			}
 		</style>
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/octicons/2.1.2/octicons.css">
 	</head>
@@ -118,11 +146,26 @@
 				<br>{{rl}}
 			</div>
 		</div>
-		<div class="search">
-			<form id="search">
-				<input type="text" placeholder="username">
-			</form>
-		</div>
+		{% if user %}
+			<div class="search">
+				<form id="search">
+					<input type="text" placeholder="username">
+				</form>
+			</div>
+			<div class="logout">
+				<a href="/logout" class="logout">
+					<span style="display: inline-block;vertical-align: middle;">logout</span>
+				</a>
+			</div>
+		{% else %}
+			<div class="login">
+				<a href="/login" class="login">
+					<span class="mega-octicon octicon-mark-github" style="vertical-align: middle;"></span>
+					<span style="display: inline-block;vertical-align: middle;width: 10px;"></span>
+					<span style="display: inline-block;vertical-align: middle;">login via github</span>
+				</a>
+			</div>
+		{% endif %}
 		<div class="usage">
 			<pre><code>{{usage}}</code></pre>
 		</div>
