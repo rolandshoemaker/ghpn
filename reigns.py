@@ -26,12 +26,12 @@ stats_run(args.stats_interval)
 
 redis_jobs = []
 def exiter(signal, frame):
-	for p in redis_jobs:
-		p.terminate()
-	logger.info("killed redis worker processes")
-	logger.info("ghpn-reigns has shutdown!")
-	exit(0)
-	
+    for p in redis_jobs:
+        p.terminate()
+    logger.info("killed redis worker processes")
+    logger.info("ghpn-reigns has shutdown!")
+    exit(0)
+    
 logger.info("registering signal handler")
 signal.signal(signal.SIGINT, exiter)
 
