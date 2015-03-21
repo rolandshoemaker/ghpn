@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-from flask import Flask, make_response, jsonify, render_template, send_from_directory, url_for, g, redirect
+from flask import Flask, make_response, jsonify, render_template, send_from_directory, url_for, g, redirect, session
 from flask.ext.github import GitHub as GitHub_flask
 
 from libghpn import GHProfileStats, logo_block, section_header_block
@@ -165,7 +165,7 @@ def authorized(oauth_token):
     return redirect(url_for("index"))
 
 # this may not actually be needed since we aren't using github-flask to make any requests...?
-@github.access_token_getter
+@github_oauth.access_token_getter
 def token_getter():
     if g.user:
         return g.user.github_access_token
