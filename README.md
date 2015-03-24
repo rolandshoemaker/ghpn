@@ -10,7 +10,7 @@ from github for that block. These blocks are either various kinds of table or as
 
 Both the `ghpn` CLI tool and the web application rely on `libghpn.py` which provides all the core functionality and uses
 [`github3.py`](). The web application uses an extremely simple [*JQuery*]() based single-page frontend, a [*flask*]() based
-*Python* backend and *Redis*+*Python* background workers to process users.
+backend and *Python* background workers to process users in a *Redis* queue..
 
 ## early ghpn page
 
